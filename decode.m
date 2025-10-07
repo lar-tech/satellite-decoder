@@ -15,5 +15,3 @@ sync_indices = find(mask);
 fprintf('Gefundene Syncwörter: %d\n', numel(sync_indices));
 disp('Erste 5 Positionen:');
 disp(sync_indices(1:min(5,end)));
-
-% skrr pow
