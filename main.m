@@ -27,7 +27,7 @@ constellations = {
 trellis = poly2trellis(7, [117 155]);
 vDec = comm.ViterbiDecoder( ...
     'TrellisStructure', trellis, ...
-    'InputFormat', 'Hard'...
+    'InputFormat', 'Soft'...
 );
 
 for k = 1:4
@@ -35,27 +35,24 @@ for k = 1:4
     symbols = pskdemod(y_carr, M, pi/4, constellations{k});
     bitsPerSym = log2(M);
     bits = de2bi(symbols, bitsPerSym, 'left-msb');
-    bitStream = zeros(length(bits),1);
-    for i=1:2:length(bitStream)
-        disp(bits(1,i))
-        bitStream(i) = bits(1,i);
-        bitStream(i+1) = bits(2,i);
-    end
 
+    bitStream = double(reshape(bits.', [], 1));
 
-    % % viterbi-decoding
-    % decBits = vDec(bits);
-    % 
-    % % frame-synchronization
-    % syncHex = '1ACFFC1D';
-    % syncBytes = sscanf(syncHex, '%2x').';
-    % syncBits = de2bi(syncBytes, 8, 'left-msb');
-    % syncBits = reshape(syncBits.', 1, []);
-    % 
-    % % cross-correlation
-    % [corr,lags] = xcorr(decBits, syncBits);
-    % 
-    % figure(k);
-    % plot(corr);
+    % viterbi-decoding
+    reset(vDec);
+    decBits = vDec(bitStream);
+    decBits_mapped = 2*decBits - 1;
 
+    % frame-synchronization
+    syncHex = '1ACFFC1D';
+    syncBytes = sscanf(syncHex, '%2x').';
+    syncBits = de2bi(syncBytes, 8, 'left-msb');
+    syncBits = reshape(syncBits.', 1, []);
+    syncBits_mapped = 2*syncBits - 1;
+
+    % cross-correlation
+    [corr,lags] = xcorr(decBits_mapped, fliplr(syncBits_mapped));
+
+    figure(k);
+    plot(corr);
 end
