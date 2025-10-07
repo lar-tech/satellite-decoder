@@ -9,9 +9,9 @@ function [symbols, fsResampled] = demod(Data, Params, Rcc)
     Q = Q / max(abs(Q));
     x = (I + 1j*Q);
     x = x(Data.minDataIdx:Data.maxDataIdx);
-    targetFs = Params.targetSps * Params.symbolRate; 
 
     % resampling
+     targetFs = Params.targetSps * Params.symbolRate; 
     [p, q] = rat(targetFs/fs);         
     xResampled = resample(x, p, q);           
     fsResampled = fs * p / q;                
