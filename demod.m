@@ -1,11 +1,14 @@
-function [y_carr, fs_rs] = demod(file, minData, maxData, rolloff, spanSym, targetSps, targetFs)
+function [y_carr, fs_rs] = demod(file, minDataIdx, maxDataIdx, minClip, maxClip, rolloff, spanSym, targetSps, targetFs)
     % load data
     [rawData, fs] = audioread(file);
     I = single(rawData(:,1));
     Q = single(rawData(:,2));
+    I = clip(I,minClip,maxClip);
+    Q = clip(Q,minClip,maxClip);
+    I = I / max(abs(I));
+    Q = Q / max(abs(Q));
     x = (I + 1j*Q);
-    x = x ./ max(abs(x));
-    x = x(minData:maxData);
+    x = x(minDataIdx:maxDataIdx);
     
     % resampling
     [p, q] = rat(targetFs/fs);         
