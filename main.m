@@ -3,8 +3,8 @@ clear; close all; clc;
 %% parameter
 % file
 Data.filePath = "data/input.wav";   % raw IQ-samples
-Data.minDataIdx = 500000;              % min position of samples
-Data.maxDataIdx = 600000;         % max position of samples
+Data.minDataIdx = 500000;           % min position of samples
+Data.maxDataIdx = 600000;           % max position of samples
 
 % general
 Params.minClip = -0.01;             % min value for clipping
@@ -26,6 +26,7 @@ Viterbi.softInputWordLength = 8;    % soft-input-word-length
 
 %% demodulate qpsk
 [symbols, fsResampled] = demod(Data, Params, Rcc);
+scatterplot(symbols);
 
 %% sync data
 % constellation rotation and symmetry
