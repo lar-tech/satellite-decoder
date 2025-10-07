@@ -2,3 +2,4 @@
 .python-version
 .vscode/
 plots/
+*.asv
