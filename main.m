@@ -10,17 +10,9 @@ Data.maxDataIdx = 500000;           % max position of samples
 Params.minClip = -0.01;             % min value for clipping
 Params.maxClip = 0.01;              % max value for clippling
 Params.M = 4;                       % mumber of symbols
-Params.constellation = [3 2 0 1];   % constellation of gray-coding
 Params.symbolRate = 72e3;           % symbolrate
 Params.targetSps = 4;               % target samples per symbol
-
-% rcc
-Rcc.rollOff = 0.35;                 % roll-off-factor
-Rcc.spanSym = 10;                   % window length
-
-% sync
-Sync.testConstellations = true;    %
-Sync.constellations = {
+Params.constellations = {
                         [0 1 3 2], ...      % default
                         [1 3 2 0], ...      % 90°
                         [3 2 0 1], ...      % 180°
@@ -30,6 +22,10 @@ Sync.constellations = {
                         [0 2 3 1], ...      % (I, Q) -> (Q, I)
                         [3 1 0 2], ...      % (I, Q) -> (-Q, -I)
                     };
+
+% rcc
+Rcc.rollOff = 0.35;                 % roll-off-factor
+Rcc.spanSym = 10;                   % window length
 
 % viterbi
 Viterbi.codeRate = 1/2;             % Code rate of convolutional encoder
@@ -43,27 +39,5 @@ Viterbi.softInputWordLength = 8;    % soft-input-word-length
 % scatterplot(symbols);
 
 %% sync data
-symbols = sync(symbols, Sync, Params, Viterbi);
+[symbols, constellation] = sync(symbols, Params, Viterbi);
 
-% % frame-synchronization-word
-% syncHex = 'FCA2B63DB00D9794';
-% syncBytes = sscanf(syncHex, '%2x').';
-% syncBits = de2bi(syncBytes, 8, 'left-msb');
-% syncBits = reshape(syncBits.', 1, []);
-% syncBits = 2*double(syncBits)-1;
-% 
-% % qpsk demodulation hard
-% hardBits = pskdemod( ...
-%             symbols, ...
-%             Params.M, ...
-%             pi/4, ...
-%             Params.constellation...
-%             ); 
-% hardBits = de2bi(hardBits, 2, 'left-msb');
-% hardBits = reshape(hardBits.', [], 1);
-% 
-% % cross-correlation
-% [corr,lags] = xcorr(hardBits, syncBits);
-% 
-% figure();
-% plot(corr);
