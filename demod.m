@@ -47,4 +47,8 @@ function [symbols, fsResampled] = demod(Data, Params, Rcc)
         'SamplesPerSymbol',1);
     symbols = carrierSync(ySync);
 
+    if Params.plotting == true
+        scatterplot(symbols);
+    end
+
 end

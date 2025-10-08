@@ -3,10 +3,11 @@ clear; close all; clc;
 %% parameter
 % file
 Data.filePath = "data/input.wav";   % raw IQ-samples
-Data.minDataIdx = 1;           % min position of samples
+Data.minDataIdx = 1;                % min position of samples
 Data.maxDataIdx = 500000;           % max position of samples
 
 % general
+Params.plotting = false;             %
 Params.minClip = -0.01;             % min value for clipping
 Params.maxClip = 0.01;              % max value for clippling
 Params.M = 4;                       % mumber of symbols
@@ -36,7 +37,6 @@ Viterbi.softInputWordLength = 8;    % soft-input-word-length
 
 %% demodulate qpsk
 [symbols, fsResampled] = demod(Data, Params, Rcc);
-% scatterplot(symbols);
 
 %% sync data
 [symbols, constellation] = sync(symbols, Params, Viterbi);
