@@ -1,4 +1,4 @@
-function [symbols, correctConstellation] = sync(symbols, Params, Viterbi)
+function [frames, correctConstellation] = sync(symbols, Params, Viterbi)
     % sync word before using viterbi
     syncAsm = 'FCA2B63DB00D9794';
     syncAsmBytes = sscanf(syncAsm, '%2x').';
@@ -37,36 +37,22 @@ function [symbols, correctConstellation] = sync(symbols, Params, Viterbi)
             end
             break
         end
-        
-
     end
+
+    %% cutting frames
+    asmLen = length(syncAsmBits);
+    frameLen = 16384;
     
-    % %% viterbi
-    % % qpsk demodulation soft-decoding with correct constellation
-    % softBits = pskdemod( ...
-    %             symbols, ...
-    %             Params.M, ...
-    %             pi/4, ...
-    %             correctConstellation, ...
-    %             OutputType="llr" ...
-    %             ); % PlotConstellation=true
-    % softBitsScaled = softBits * 8;
-    % 
-    % % frame-synchronization-word
-    % syncHex = '1ACFFC1D';
-    % syncBytes = sscanf(syncHex, '%2x').';
-    % syncBits = de2bi(syncBytes, 8, 'left-msb');
-    % syncBits = reshape(syncBits.', 1, []);
-    % syncBits = 2*double(syncBits)-1;
-    % 
-    % % viterbi-decoder
-    % trellis = poly2trellis(Viterbi.constLen, Viterbi.codeGenPoly);
-    % vDec = comm.ViterbiDecoder( ...
-    %         'TrellisStructure', trellis, ...
-    %         'InputFormat', 'Soft',...
-    %         'TracebackDepth', Viterbi.tblen...
-    %         );
-    % 
-    % 
-    % decBitsSoft = vDecSoft(softBitsScaled);
+    frames = cell(1, numel(locs));
+    for k = 1:numel(locs)
+        start_idx = lags(locs(k)) + asmLen + 1;
+        stop_idx  = start_idx + frameLen - 1;
+        if start_idx > 0 && stop_idx <= numel(softBits)
+            frames{k} = softBits(start_idx:stop_idx);
+        else
+            frames{k} = [];
+        end
+    end
+    validFrames = ~cellfun(@isempty, frames);
+    frames = frames(validFrames);
 end

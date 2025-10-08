@@ -7,7 +7,7 @@ Data.minDataIdx = 1;                % min position of samples
 Data.maxDataIdx = 500000;           % max position of samples
 
 % general
-Params.plotting = false;             %
+Params.plotting = false;            
 Params.minClip = -0.01;             % min value for clipping
 Params.maxClip = 0.01;              % max value for clippling
 Params.M = 4;                       % mumber of symbols
@@ -38,6 +38,22 @@ Viterbi.softInputWordLength = 8;    % soft-input-word-length
 %% demodulate qpsk
 [symbols, fsResampled] = demod(Data, Params, Rcc);
 
-%% sync data
-[symbols, constellation] = sync(symbols, Params, Viterbi);
+%% sync data to frames
+[frames, constellation] = sync(symbols, Params, Viterbi);
 
+% % frame-synchronization-word
+% syncHex = '1ACFFC1D';
+% syncBytes = sscanf(syncHex, '%2x').';
+% syncBits = de2bi(syncBytes, 8, 'left-msb');
+% syncBits = reshape(syncBits.', 1, []);
+% syncBits = 2*double(syncBits)-1;
+% 
+% % viterbi-decoder
+% trellis = poly2trellis(Viterbi.constLen, Viterbi.codeGenPoly);
+% vDec = comm.ViterbiDecoder( ...
+%         'TrellisStructure', trellis, ...
+%         'InputFormat', 'Soft',...
+%         'TracebackDepth', Viterbi.tblen...
+%         );
+% 
+% decBitsSoft = vDec(softBits);
