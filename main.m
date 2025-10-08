@@ -31,29 +31,106 @@ Rcc.spanSym = 10;                   % window length
 % viterbi
 Viterbi.codeRate = 1/2;             % Code rate of convolutional encoder
 Viterbi.constLen = 7;               % Constraint length of encoder
-Viterbi.codeGenPoly = [117 155];    % Code generator polynomial of encoder
-Viterbi.tblen = 32;                 % Traceback depth of Viterbi decoder
+Viterbi.codeGenPoly = [171 133];    % Code generator polynomial of encoder
+Viterbi.tblen = 30;                 % Traceback depth of Viterbi decoder
 Viterbi.softInputWordLength = 8;    % soft-input-word-length
+
+% descrambler
+Descrambler.base = 2;                   % binary base
+Descrambler.polynom = '1+x^-14+x^-15';  % polynom
+Descrambler.init = ones(1,15);          % initial conditions
 
 %% demodulate qpsk
 [symbols, fsResampled] = demod(Data, Params, Rcc);
 
 %% sync data to frames
-[frames, constellation] = sync(symbols, Params, Viterbi);
+% [frames, hardBits, constellation] = sync(symbols, Params);
 
-% % frame-synchronization-word
-% syncHex = '1ACFFC1D';
-% syncBytes = sscanf(syncHex, '%2x').';
-% syncBits = de2bi(syncBytes, 8, 'left-msb');
-% syncBits = reshape(syncBits.', 1, []);
-% syncBits = 2*double(syncBits)-1;
+% sync word
+syncAsm = 'FCA2B63DB00D9794';
+syncAsmBytes = sscanf(syncAsm, '%2x').';
+syncAsmBits = de2bi(syncAsmBytes, 8, 'left-msb');
+syncAsmBits = reshape(syncAsmBits.', 1, []);
+syncAsmBits = 2*double(syncAsmBits)-1;
+
+for i=1:length(Params.constellations)
+    % qpsk demodulation hard-decoding
+    % softBits = pskdemod( ...
+    %             symbols, ...
+    %             Params.M, ...
+    %             pi/4, ...
+    %             Params.constellations{i}, ...
+    %             OutputType="llr" ...
+    %             );
+    hardBits = pskdemod( ...
+                symbols, ...
+                Params.M, ...
+                pi/4, ...
+                Params.constellations{i} ...
+                );
+    hardBits = de2bi(hardBits, 2, 'left-msb');
+    hardBits = reshape(hardBits.', [], 1);
+
+    % cross-correlation
+    [corr,lags] = xcorr(hardBits, syncAsmBits);
+
+    % find peaks and calculate widths
+    [pks,locs] = findpeaks(corr, 'MinPeakProminence',35); %'MinPeakDistance',15500, 'Threshold',35);
+    width = mean(diff(locs))/16;
+    if width >= 1020 || width <= 1030 && width==1024
+        correctConstellation = Params.constellations{i};
+        break
+    end
+end
+asmLen = 64;
+frameLen = 16384;
+
+frames = cell(1, numel(locs));
+for k = 1:numel(locs)
+    start_idx = lags(locs(k));
+    stop_idx  = start_idx + frameLen - 1;
+    if start_idx > 0 && stop_idx <= numel(hardBits)
+        frames{k} = hardBits(start_idx:stop_idx);
+    else
+        frames{k} = [];
+    end
+end
+validFrames = ~cellfun(@isempty, frames);
+frames = frames(validFrames);
+
+frame = frames{1};
+% [corr, lags] = xcorr(frame, syncAsmBits);
+
+% viterbi-decoder
+trellis = poly2trellis(Viterbi.constLen, Viterbi.codeGenPoly);
+vDec = comm.ViterbiDecoder( ...
+        'TrellisStructure', trellis, ...
+        'InputFormat', 'Hard',...
+        'TracebackDepth', Viterbi.tblen,...
+        'TerminationMethod','Continuous'...
+        );
+x = ones(100,1);
+code = convenc(x,trellis);
+decodedBits = vDec(code);
+
+
+% syncAsm = '1ACFFC1D';
+% syncAsmBytes = sscanf(syncAsm, '%2x').';
+% syncAsmBits = de2bi(syncAsmBytes, 8, 'left-msb');
+% syncAsmBits = reshape(syncAsmBits.', 1, []);
 % 
-% % viterbi-decoder
-% trellis = poly2trellis(Viterbi.constLen, Viterbi.codeGenPoly);
-% vDec = comm.ViterbiDecoder( ...
-%         'TrellisStructure', trellis, ...
-%         'InputFormat', 'Soft',...
-%         'TracebackDepth', Viterbi.tblen...
-%         );
+% decodedBits = vDec(frame(:));
+% [corr, lags] = xcorr(decodedout, syncAsmBits);
+% plot(lags, corr);
+
+% descrambler = comm.Descrambler(Descrambler.base, ...
+%                         Descrambler.polynom, ...
+%                         Descrambler.init ...
+%                         );
 % 
-% decBitsSoft = vDec(softBits);
+% descrambledBits = cell(size(decodedBits));
+% for k = 1:numel(decodedBits)
+%     decodedBit = logical(decodedBits{k});
+%     descrambledBits{k} = descrambler(decodedBit(:));
+%     reset(descrambler);
+% end

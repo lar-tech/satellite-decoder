@@ -1,5 +1,5 @@
-function [frames, correctConstellation] = sync(symbols, Params, Viterbi)
-    % sync word before using viterbi
+function [frames, hardBits, correctConstellation] = sync(symbols, Params)
+    % sync word
     syncAsm = 'FCA2B63DB00D9794';
     syncAsmBytes = sscanf(syncAsm, '%2x').';
     syncAsmBits = de2bi(syncAsmBytes, 8, 'left-msb');
@@ -15,7 +15,13 @@ function [frames, correctConstellation] = sync(symbols, Params, Viterbi)
                     pi/4, ...
                     Params.constellations{i}, ...
                     OutputType="llr" ...
-                    ); 
+                    );
+        hardBits = pskdemod( ...
+                    symbols, ...
+                    Params.M, ...
+                    pi/4, ...
+                    Params.constellations{i} ...
+                    );
     
         % cross-correlation
         [corr,lags] = xcorr(softBits, syncAsmBits);
@@ -40,12 +46,11 @@ function [frames, correctConstellation] = sync(symbols, Params, Viterbi)
     end
 
     %% cutting frames
-    asmLen = length(syncAsmBits);
     frameLen = 16384;
     
     frames = cell(1, numel(locs));
     for k = 1:numel(locs)
-        start_idx = lags(locs(k)) + asmLen + 1;
+        start_idx = lags(locs(k));
         stop_idx  = start_idx + frameLen - 1;
         if start_idx > 0 && stop_idx <= numel(softBits)
             frames{k} = softBits(start_idx:stop_idx);
