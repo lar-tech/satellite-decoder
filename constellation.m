@@ -1,4 +1,4 @@
-function [frames, correctConstellation] = sync(symbols, Params)
+function [softBits, correctConstellation] = constellation(symbols, Params)
     % sync word
     syncAsm = 'FCA2B63DB00D9794';
     syncAsmBytes = sscanf(syncAsm, '%2x').';
@@ -26,32 +26,16 @@ function [frames, correctConstellation] = sync(symbols, Params)
         if width >= 1020 || width <= 1030 && width==1024
             correctConstellation = Params.constellations{i};
             if Params.plotting == true
-                figure();
+                figure;
                 plot(lags, corr); hold on;
                 plot(lags(locs), pks, 'rx');
                 hold off;
                 xlabel('Samples');
                 ylabel('Cross-correlation amplitude');
-                title(sprintf('Cross-correlation of FCA2B63DB00D9794 and %s', mat2str(Params.constellations{i})));
+                title(sprintf('Cross-correlation of FCA2B63DB00D9794 and encoded Softbits using %s', mat2str(Params.constellations{i})));
                 grid on;
             end
             break
         end
     end
-
-    %% cutting frames
-    frameLen = 16384;
-    
-    frames = cell(1, numel(locs));
-    for k = 1:numel(locs)
-        start_idx = lags(locs(k));
-        stop_idx  = start_idx + frameLen - 1;
-        if start_idx > 0 && stop_idx <= numel(softBits)
-            frames{k} = softBits(start_idx:stop_idx);
-        else
-            frames{k} = [];
-        end
-    end
-    validFrames = ~cellfun(@isempty, frames);
-    frames = frames(validFrames);
 end

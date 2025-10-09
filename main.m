@@ -7,7 +7,7 @@ Data.minDataIdx = 1;                % min position of samples
 Data.maxDataIdx = 500000;           % max position of samples
 
 % general
-Params.plotting = false;            
+Params.plotting = true;            
 Params.minClip = -0.01;             % min value for clipping
 Params.maxClip = 0.01;              % max value for clippling
 Params.M = 4;                       % mumber of symbols
@@ -36,15 +36,15 @@ Viterbi.tblen = 30;                 % Traceback depth of Viterbi decoder
 Viterbi.softInputWordLength = 8;    % soft-input-word-length
 
 % descrambler
-Descrambler.base = 2;                   % binary base
-Descrambler.polynom = '1+x^-14+x^-15';  % polynom
-Descrambler.init = ones(1,15);          % initial conditions
+Descrambler.base = 2;                           % binary base
+Descrambler.polynom = '1+x^-3+x^-5+x^-7+x^-8';  % polynom
+Descrambler.init = ones(1,8);                   % initial conditions
 
 %% demodulate qpsk
 [symbols, fsResampled] = demod(Data, Params, Rcc);
 
-%% sync data to frames
-[frames, constellation] = sync(symbols, Params);
+%% find constellation
+[softBits, constellation] = constellation(symbols, Params);
 
-%% decode & descramble
-cadus = decode(frames, Viterbi, Descrambler);
+%% decoding and descrambling
+cadus = decode(softBits, Viterbi, Descrambler, Params);
