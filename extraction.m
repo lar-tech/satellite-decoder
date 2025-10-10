@@ -1,7 +1,7 @@
 clear; clc; close all;
 verif = true;
 
-%% === Frame Extraction ===
+%% Frame Extraction
 filename = 'data/meteor_m2_lrpt.cadu';
 fid = fopen(filename,'rb');
 data = fread(fid,inf,'uint8');
@@ -22,9 +22,9 @@ for i = 1:num_frames
     end
 end
 
-%% === Pointer Calculation (11-bit FHP) ===
+%% Pointer Calculation 
 pointer_raw = double(frames(:,13))*256 + double(frames(:,14));
-pointer = bitand(pointer_raw, 2047);   % 0x07FF → nur 11 Bit gültig
+pointer = bitand(pointer_raw, 2047); 
 
 if verif
     fprintf('Loaded %d frames of %d bytes each\n', num_frames, frame_len);
