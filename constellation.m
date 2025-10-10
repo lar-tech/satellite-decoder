@@ -30,6 +30,7 @@ function [softBits, correctConstellation] = constellation(symbols, Params)
                 plot(lags, corr); hold on;
                 plot(lags(locs), pks, 'rx');
                 hold off;
+                xlim([0 length(corr)/2]);
                 xlabel('Samples');
                 ylabel('Cross-correlation amplitude');
                 title(sprintf('Cross-correlation of FCA2B63DB00D9794 and encoded Softbits using %s', mat2str(Params.constellations{i})));

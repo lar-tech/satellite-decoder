@@ -51,7 +51,14 @@ function [symbols, fsResampled] = demod(Data, Params, Rcc)
     symbols = carrierSync(ySync);
 
     if Params.plotting
-        scatterplot(symbols);
+        figure;
+        plot(real(symbols), imag(symbols), marker='.', LineStyle='none')
+        axis equal;
+        axis([-2.5 2.5 -2.5 2.5]);
+        grid on;
+        xlabel('I-Component');
+        ylabel('Q-Component');
+        title('Demodulated QPSK-Symbols');
     end
 
 end
