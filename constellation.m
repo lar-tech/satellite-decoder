@@ -25,7 +25,7 @@ function [softBits, correctConstellation] = constellation(symbols, Params)
         width = mean(diff(locs))/16;
         if width >= 1020 || width <= 1030 && width==1024
             correctConstellation = Params.constellations{i};
-            if Params.plotting == true
+            if Params.plotting
                 figure;
                 plot(lags, corr); hold on;
                 plot(lags(locs), pks, 'rx');

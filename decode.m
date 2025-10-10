@@ -8,8 +8,9 @@ function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
             'TracebackDepth', Viterbi.tblen,...
             'TerminationMethod','Continuous'...
             );
-    softBitsScaled = -softBits * 10;
+    softBitsScaled = softBits * 10;
     decodedBits = vDec(softBitsScaled);
+    decodedBits = 2*double(decodedBits)-1;
     
     % sync word
     syncAsm = '1ACFFC1D';
@@ -19,7 +20,14 @@ function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
     syncAsmBits = 2*double(syncAsmBits)-1;
     
     [corr, lags] = xcorr(decodedBits, syncAsmBits);
-    [pks,locs] = findpeaks(corr, 'MinPeakDistance',7750, 'Threshold',10);
+    [pks,locs] = findpeaks(abs(corr), 'MinPeakDistance',7750, 'Threshold',10);
+    
+    % invert Bits if correlation is negative
+    if corr(locs) < 0
+        corr = -corr;
+        decodedBits = -decodedBits;
+        decodedBits = double(decodedBits+1)/2;
+    end
 
     if Params.plotting
         figure()
@@ -27,11 +35,11 @@ function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
         plot(lags(locs), pks, 'rx');
         hold off;
         xlabel('Samples');
-        ylabel('Cross-correlation amplitude');
+        ylabel('Cross-correlation');
         title('Cross-correlation of 1ACFFC1D and decoded Softbits');
         grid on;
     end
-    
+
     % remove sync word for descrambling
     payloads = cell(1, numel(locs));
     for i = 1:numel(locs)
@@ -48,10 +56,10 @@ function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
     
     % descrambler
     descrambler = comm.Descrambler( ...
-                            'CalculationBase', Descrambler.base, ...
-                            'Polynomial', Descrambler.polynom, ...
-                            'InitialConditions', Descrambler.init ...
-                            );
+                    'CalculationBase', Descrambler.base, ...
+                    'Polynomial', Descrambler.polynom, ...
+                    'InitialConditions', Descrambler.init ...
+                    );
     cadus = cell(size(payloads));
     cvcdus = cell(size(payloads));
     for i = 1:numel(payloads)

@@ -1,4 +1,4 @@
-function vcdus = correction(cvcdus, ReedSolomon)
+function vcdus = correction(cvcdus, ReedSolomon, Params)
     % bit -> byte
     for i = 1:numel(cvcdus)
         cvcdu = reshape(cvcdus{i}, 8, []).';
@@ -25,7 +25,7 @@ function vcdus = correction(cvcdus, ReedSolomon)
                 'GeneratorPolynomial', generatorPolynomial, ...
                 'PrimitivePolynomialSource', 'Property', ...
                 'PrimitivePolynomial', ReedSolomon.primitivePolynomial ...
-            );
+                );
     correctedBlocks = cell(1, numel(deinterleavedBlocks));
     numErrors = cell(1, numel(deinterleavedBlocks));
     for i = 1:numel(deinterleavedBlocks)
@@ -34,7 +34,9 @@ function vcdus = correction(cvcdus, ReedSolomon)
         numError = zeros(4,1);
         for j = 1:4
             [correctedBlock(j,:), numError(j)] = rsDec(rsBlock(j,:).');
-            fprintf('Block %d: %d Bytefehler korrigiert\n', j, numError(j));
+            if Params.plotting
+                fprintf('CVCDU %d, Block %d: %d byte errors corrected.\n', i, j, numError(j));
+            end
         end
         correctedBlocks{i} = correctedBlock;
         numErrors{i} = numError;
