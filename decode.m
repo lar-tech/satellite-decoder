@@ -1,4 +1,4 @@
-function cadus = decode(softBits, Viterbi, Descrambler, Params)
+function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
     
     % viterbi-decoder
     trellis = poly2trellis(Viterbi.constLen, Viterbi.codeGenPoly);
@@ -34,13 +34,13 @@ function cadus = decode(softBits, Viterbi, Descrambler, Params)
     
     % remove sync word for descrambling
     payloads = cell(1, numel(locs));
-    for k = 1:numel(locs)
-        start_idx = lags(locs(k))+length(syncAsmBits)+1;
+    for i = 1:numel(locs)
+        start_idx = lags(locs(i))+length(syncAsmBits)+1;
         stop_idx  = start_idx + 8160-1;
         if start_idx > 0 && stop_idx <= numel(decodedBits)
-            payloads{k} = decodedBits(start_idx:stop_idx);
+            payloads{i} = decodedBits(start_idx:stop_idx);
         else
-            payloads{k} = [];
+            payloads{i} = [];
         end
     end
     validFrames = ~cellfun(@isempty, payloads);
@@ -53,13 +53,13 @@ function cadus = decode(softBits, Viterbi, Descrambler, Params)
                             'InitialConditions', Descrambler.init ...
                             );
     cadus = cell(size(payloads));
-    for k = 1:numel(payloads)
-        payloadBits = logical(payloads{k});
+    cvcdus = cell(size(payloads));
+    for i = 1:numel(payloads)
+        payloadBits = logical(payloads{i});
         descrambledPayload = descrambler(payloadBits);
-        syncWord = decodedBits(lags(locs(k)):lags(locs(k))+length(syncAsmBits)-1);
-        cadu = vertcat(syncWord, descrambledPayload);
-        cadu = reshape(cadu, 8, []).';
-        cadus{k} = bi2de(cadu, 'left-msb');
+        cvcdus{i} = descrambledPayload;
+        syncWord = decodedBits(lags(locs(i)):lags(locs(i))+length(syncAsmBits)-1);
+        cadus{i} = vertcat(syncWord, descrambledPayload);
         reset(descrambler);
     end
 end
