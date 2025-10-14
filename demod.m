@@ -60,5 +60,4 @@ function [symbols, fsResampled] = demod(Data, Params, Rcc)
         ylabel('Q-Component');
         title('Demodulated QPSK-Symbols');
     end
-
 end

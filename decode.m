@@ -27,7 +27,7 @@ function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
         decodedBits = -decodedBits;
         decodedBits = double(decodedBits+1)/2;
     end
-
+    
     if Params.plotting
         figure()
         plot(lags, corr); hold on;
@@ -39,7 +39,7 @@ function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
         title('Cross-correlation of 1ACFFC1D and decoded Softbits');
         grid on;
     end
-
+    
     % remove sync word for descrambling
     payloads = cell(1, numel(locs));
     for i = 1:numel(locs)
@@ -55,19 +55,21 @@ function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
     payloads = payloads(validFrames);
     
     % descrambler
-    descrambler = comm.Descrambler( ...
-                    'CalculationBase', Descrambler.base, ...
-                    'Polynomial', Descrambler.polynom, ...
-                    'InitialConditions', Descrambler.init ...
-                    );
-    cadus = cell(size(payloads));
-    cvcdus = cell(size(payloads));
-    for i = 1:numel(payloads)
-        payloadBits = logical(payloads{i});
-        descrambledPayload = descrambler(payloadBits);
-        cvcdus{i} = descrambledPayload;
-        syncWord = decodedBits(lags(locs(i)):lags(locs(i))+length(syncAsmBits)-1);
-        cadus{i} = vertcat(syncWord, descrambledPayload);
-        reset(descrambler);
+    numFrames = numel(payloads);
+    frameLenBytes = 1024;
+    cadus = zeros(numFrames, frameLenBytes, 'uint8');
+    cvcdus = zeros(numFrames, frameLenBytes-4, 'uint8');
+
+    for i = 1:numFrames
+        payload = payloads{i};
+        payload = reshape(payload, 8, []).';
+        payload = uint8(bi2de(payload, 'left-msb'));
+        idx = mod(0:numel(payload)-1, 255) + 1;
+        payloadDescrambled = diag(bitxor(payload, Descrambler.pn(idx)));
+        cvcdus(i,:) = payloadDescrambled;
+    
+        syncWord = decodedBits(lags(locs(i)) : lags(locs(i)) + length(syncAsmBits) - 1);
+        syncWord = uint8(bi2de(reshape(syncWord, 8, []).', 'left-msb'));
+        cadus(i, :) = vertcat(syncWord, payloadDescrambled);
     end
 end
