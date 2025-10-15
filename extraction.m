@@ -24,52 +24,39 @@ end
 
 cvcdus = cadus(:,5:end);
 vcdus = cvcdus(:,1:end-128);
+mpdus = vcdus(:,9:end);
+mpdusPayload = mpdus(:,3:end);
+mpdusHeader = mpdus(:,1:2);
+mpdusHeaderBits = int2bit(mpdusHeader.', 8).';
+mpduPointer = mpdusHeaderBits(:,6:end);
+mpduPointerDec = bi2de(mpduPointer, 'left-msb');
 
-%% Pointer Calculation 
-% pointer_raw = double(cadus(:,13))*256 + double(cadus(:,14));
-% pointer = bitand(pointer_raw, 2047); 
-% 
-% if verif
-%     fprintf('Loaded %d frames of %d bytes each\n', num_frames, frame_len);
-%     fprintf('First 4 bytes (ASM): %s\n', sprintf('%02X ', frames(1,1:4)));
-%     fprintf('Pointer range: min=%d, max=%d\n', min(pointer), max(pointer));
-% end
-% 
-% %% M-PDU Extraction 
-% m_pdu_data = {};
-% apid_list  = [];
-% 
-% for i = 1:caduLength
-%     lo = 17; 
-%     hi = frame_len - 5;  
-% 
-%     found = false;
-%     for p = lo:hi
-%         b1 = frames(i,p); b2 = frames(i,p+1); b3 = frames(i,p+2); b4 = frames(i,p+3); b5 = frames(i,p+4); b6 = frames(i,p+5);
-% 
-%         version = bitshift(b1, -5);  
-%         if version ~= 0, continue; end
-% 
-%         apid = bitand( bitor( bitshift(uint16(b1),8), uint16(b2) ), uint16(2047) ); % 11-bit
-%         if ~(ismember(apid, [64 65 66 67 68 70 71]))
-%             continue;
-%         end
-% 
-% 
-%         pkt_len = double( bitshift(uint16(b5),8) + uint16(b6) ) + 7; 
-%         if p + pkt_len - 1 > frame_len
-%             continue; 
-%         end
-% 
-%         m_pdu_data{end+1} = frames(i, p : p + pkt_len - 1);
-%         apid_list(end+1)  = apid;
-%         found = true;
-%         break;
-%     end
-% end
-% 
-% if verif
-%     fprintf('Extracted %d M-PDU packets\n', numel(m_pdu_data));
-%     unique_apids = unique(apid_list);
-%     fprintf('Unique APIDs found: %s\n', sprintf('%d ', unique_apids));
-% end
+
+
+packetBuffer = uint8([]);
+mcus = {}; 
+k = 1;
+
+for i = 1:size(mpdus,1)
+    P = mpduPointerDec(i);
+
+    if P == 2047
+        packetBuffer = [packetBuffer, mpdusPayload(i,:)];
+    else
+        if P > 0
+            packetBuffer = [packetBuffer, mpdusPayload(i,1:P)];
+        end
+        while numel(packetBuffer) >= 6
+            header = packetBuffer(1:6);
+            lenField = bitshift(uint16(header(5)),8) + uint16(header(6));
+            totalLen = double(lenField) + 7;  % 6 Header + lenField+1
+            if numel(packetBuffer) < totalLen
+                break; % MCU noch unvollständig
+            end
+            mcus{k} = packetBuffer(1:totalLen);
+            packetBuffer = packetBuffer(totalLen+1:end);
+            k = k + 1;
+        end
+        packetBuffer = [packetBuffer, mpdusPayload(i,P+1:end)];
+    end
+end
