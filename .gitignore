@@ -4,3 +4,5 @@
 plots/
 *.asv
 /backup.m
+
+/data/raw_meteor24_18_aout_15h30_72k.bin

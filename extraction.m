@@ -1,5 +1,4 @@
 clear; clc; close all;
-verif = true;
 
 %% Frame Extraction
 filename = 'data/meteor_m2_lrpt.cadu';
@@ -31,32 +30,64 @@ mpdusHeaderBits = int2bit(mpdusHeader.', 8).';
 mpduPointer = mpdusHeaderBits(:,6:end);
 mpduPointerDec = bi2de(mpduPointer, 'left-msb');
 
-
-
-packetBuffer = uint8([]);
-mcus = {}; 
-k = 1;
-
-for i = 1:size(mpdus,1)
+payload_len = size(mpdusPayload, 2);
+mcus = zeros(size(mpdusPayload), 'uint8');
+for i = 1:size(mpdusPayload,1)
     P = mpduPointerDec(i);
-
-    if P == 2047
-        packetBuffer = [packetBuffer, mpdusPayload(i,:)];
-    else
-        if P > 0
-            packetBuffer = [packetBuffer, mpdusPayload(i,1:P)];
-        end
-        while numel(packetBuffer) >= 6
-            header = packetBuffer(1:6);
-            lenField = bitshift(uint16(header(5)),8) + uint16(header(6));
-            totalLen = double(lenField) + 7;  % 6 Header + lenField+1
-            if numel(packetBuffer) < totalLen
-                break; % MCU noch unvollständig
-            end
-            mcus{k} = packetBuffer(1:totalLen);
-            packetBuffer = packetBuffer(totalLen+1:end);
-            k = k + 1;
-        end
-        packetBuffer = [packetBuffer, mpdusPayload(i,P+1:end)];
-    end
+    startByte = P + 1;
+    mcus(i,1:(payload_len - P)) = mpdusPayload(i, startByte:end);
 end
+
+mcusApids = unique(mcus(:,2));
+mcusSorted = cell(1, numel(mcusApids));
+mcusSortedFollowup = cell(1, numel(mcusApids));
+mcusSortedLengthDec = cell(1, numel(mcusApids));
+mcusSortedPayload = cell(1, numel(mcusApids));
+mcusSortedCounterDec = cell(1, numel(mcusApids));
+
+for i = 1:numel(mcusApids)
+    apid = mcusApids(i);
+    rows = mcus(:,2) == apid;
+    mcusSorted{i} = mcus(rows, :);
+    mcusHeader = mcusSorted{i}(:,3:4);
+    mcusHeaderBits = int2bit(mcusHeader.', 8).';
+    mcusCounterBits = mcusHeaderBits(:,3:end);
+    mcusSortedCounterDec{i} = bi2de(mcusCounterBits, 'left-msb');
+    mcusSortedFollowup{i} = mcusHeaderBits(:,1:2);
+    mcusLength = mcusSorted{i}(:,5:6);
+    mcusLength = int2bit(mcusLength.', 8).';
+    mcusSortedLengthDec{i} = bi2de(mcusLength, 'left-msb');
+    mcusSortedPayload{i} = mcusSorted{i}(:,18:end);
+end
+
+% fin = double(cadus(:,5:end)).';
+% for col = 1:23                                  % column number = VCDU frame number
+%     first_head = fin(9,col)*256 + fin(10,col);  % 70 for column 11
+%     fin([1:first_head+1]+9, col)';              % beginning of line 11: 1st header in 70
+%     fin([1:22]+double(first_head)+11, col)';            % start of MCU of line 11
+% 
+%     % clear l secondary apid m
+%     l = fin(first_head+16-1, col)*256 + fin(first_head+16, col);  % vector of packet lengths
+%     secondary = fin(first_head+16-5, col);                        % initializes header list
+%     apid = fin(first_head+16-4, col);                             % initializes APID list
+%     m = fin([first_head+12:first_head+12], col);
+%     k = 1;
+% 
+%     while ((sum(l)+(k)*7+first_head+12) < (1020-128))
+%         m = [m fin([first_head+12:first_head+12] + sum(l) + (k)*7, col)];
+%         secondary(k+1) = fin(first_head+16 + sum(l) + (k)*7 - 5, col);
+%         apid(k+1) = fin(first_head+16 + sum(l) + (k)*7 - 4, col);
+%         l(k+1) = fin(first_head+16-1 + sum(l) + (k)*7, col)*256 + ...
+%                   fin(first_head+16 + sum(l) + (k)*7, col);
+%         % 16 = offset from VDU beginning
+%         k = k + 1;
+%     end
+% 
+%     for k = 1:length(l)-1                       % saves each MCU bytes in a new file
+%         jpeg = fin([1:l(k)] + first_head + 12 + 19 + sum(l(1:k-1)) - 1 + 7*(k-1), col);
+%         f = fopen(['jpeg', num2str(apid(k), '%03d'), '_', ...
+%                    num2str(col, '%03d'), '_', num2str(k, '%03d'), '.bin'], 'w');
+%         fwrite(f, jpeg, 'uint8');
+%         fclose(f);
+%     end
+% end
