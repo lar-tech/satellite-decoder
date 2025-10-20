@@ -60,6 +60,83 @@ for i = 1:numel(mcusApids)
     mcusSortedPayload{i} = mcusSorted{i}(:,18:end);
 end
 
+
+
+dataAll = mcus;           % alle Zeilen für diesen APID
+numRows = size(dataAll, 1);
+
+allBlocks = cell(numRows, 1);      % alle Blöcke pro Zeile (variable Länge)
+allMatrices = {};                  % später alle Zeilen als numerische Zeilenmatrix
+
+for r = 1:numRows
+    zeile1 = dataAll(r, :);        % aktuelle Zeile (Byte-Stream)
+    lenValPos = [5 6];             % Position der Längenbytes
+    index1 = 1;
+
+    blocks = {};                   % Cell-Array für Blöcke
+    maxLen = 0;                    % längster Block in dieser Zeile
+
+    while lenValPos(2) <= numel(zeile1)
+        % === 1) Länge aus zwei Bytes (Big-Endian, left-msb) ===
+        mcusLength = double(zeile1(lenValPos));           % zwei Bytes
+        mcusLengthBits = int2bit(mcusLength.', 8).';      % 16 Bits (2x8)
+        lenVal = bi2de(mcusLengthBits, 'left-msb');       % dezimaler Längenwert
+
+        % === 2) Endposition berechnen ===
+        index2 = lenValPos(2) + lenVal + 1;
+
+        if index2 > numel(zeile1)
+            index2 = numel(zeile1);
+        end
+
+        % === 3) Block ausschneiden ===
+        block = zeile1(index1:index2);
+        blocks{end+1} = block;
+        maxLen = max(maxLen, numel(block));
+
+        % === 4) Indexe aktualisieren ===
+        index1 = index2 + 1;       % Start für nächsten Block
+        lenValPos = index1 + [4 5];% 5. und 6. Byte des neuen Blocks
+
+        if lenValPos(2) > numel(zeile1)
+            break;
+        end
+    end
+
+    % === 5) In Matrix umwandeln (mit 0 auffüllen) ===
+    numBlocks = numel(blocks);
+    matrix = zeros(numBlocks, maxLen, 'like', zeile1);
+
+    for i = 1:numBlocks
+        bl = blocks{i};
+        matrix(i, 1:numel(bl)) = bl;
+    end
+
+    % speichern
+    allBlocks{r} = blocks;    % Originalblöcke
+    allMatrices{r} = matrix;  % Matrix für diese Zeile
+end
+
+% === 6) Optional: alles in eine große Matrix mit Spalten zusammenführen ===
+% gleiche Spaltenbreite erzwingen (mit 0 auffüllen)
+maxCols = max(cellfun(@(m) size(m, 2), allMatrices));
+totalRows = sum(cellfun(@(m) size(m, 1), allMatrices));
+combinedMatrix = zeros(totalRows, maxCols, 'like', dataAll);
+
+rowOffset = 0;
+for r = 1:numRows
+    m = allMatrices{r};
+    n = size(m, 1);
+    combinedMatrix(rowOffset+1:rowOffset+n, 1:size(m,2)) = m;
+    rowOffset = rowOffset + n;
+end
+
+% === 7) Zeilen löschen, die mit 0 beginnen ===
+zeroStartRows = combinedMatrix(:,1) == 0;  % logischer Index für Zeilen, deren erstes Element 0 ist
+combinedMatrix(zeroStartRows, :) = [];     % diese Zeilen löschen
+
+
+
 % fin = double(cadus(:,5:end)).';
 % for col = 1:23                                  % column number = VCDU frame number
 %     first_head = fin(9,col)*256 + fin(10,col);  % 70 for column 11
