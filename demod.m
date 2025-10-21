@@ -1,4 +1,4 @@
-function [symbols, fsResampled] = demod(Data, Params, Rcc)
+function symbols = demod(Data, Params, Rcc)
     % load data
     [rawData, fs] = audioread(Data.filePath);
     I = single(rawData(:,1));
@@ -14,7 +14,7 @@ function [symbols, fsResampled] = demod(Data, Params, Rcc)
      targetFs = Params.targetSps * Params.symbolRate; 
     [p, q] = rat(targetFs/fs);         
     xResampled = resample(x, p, q);           
-    fsResampled = fs * p / q;                
+    % fsResampled = fs * p / q;                
     
     % rrc-matched-filter
     rrcRx = comm.RaisedCosineReceiveFilter( ...

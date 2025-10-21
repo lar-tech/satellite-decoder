@@ -78,51 +78,16 @@ ReedSolomon.messageLength = 223;                        % k = n - 2E
 ReedSolomon.primitivePolynomial = [1 1 0 0 0 0 1 1 1];  % x^8 + x^7 + x^2 + x + 1
 
 %% demodulate qpsk
-[symbols, fsResampled] = demod(Data, Params, Rcc);
+symbols = demod(Data, Params, Rcc);
 
 %% find constellation
-[softBits, constellation] = constellation(symbols, Params);
+softBits = constellation(symbols, Params);
 
 %% decoding and descrambling
-[cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params);
+cvcdus = decode(softBits, Viterbi, Descrambler, Params);
 
-vcdus = cvcdus(:,1:end-128);
-mpdus = vcdus(:,9:end);
-mpdusPayload = mpdus(:,3:end);
-mpdusHeader = mpdus(:,1:2);
-mpdusHeaderBits = int2bit(mpdusHeader.', 8).';
-mpduPointer = mpdusHeaderBits(:,6:end);
-mpduPointerDec = bi2de(mpduPointer, 'left-msb');
-
-payload_len = size(mpdusPayload, 2);
-mcus = zeros(size(mpdusPayload), 'uint8');
-for i = 1:size(mpdusPayload,1)
-    P = mpduPointerDec(i);
-    startByte = P + 1;
-    mcus(i,1:(payload_len - P)) = mpdusPayload(i, startByte:end);
-end
-
-mcusApids = unique(mcus(:,2));
-mcusSorted = cell(1, numel(mcusApids));
-mcusSortedFollowup = cell(1, numel(mcusApids));
-mcusSortedLengthDec = cell(1, numel(mcusApids));
-mcusSortedPayload = cell(1, numel(mcusApids));
-mcusSortedCounterDec = cell(1, numel(mcusApids));
-
-for i = 1:numel(mcusApids)
-    apid = mcusApids(i);
-    rows = mcus(:,2) == apid;
-    mcusSorted{i} = mcus(rows, :);
-    mcusHeader = mcusSorted{i}(:,3:4);
-    mcusHeaderBits = int2bit(mcusHeader.', 8).';
-    mcusCounterBits = mcusHeaderBits(:,3:end);
-    mcusSortedCounterDec{i} = bi2de(mcusCounterBits, 'left-msb');
-    mcusSortedFollowup{i} = mcusHeaderBits(:,1:2);
-    mcusLength = mcusSorted{i}(:,5:6);
-    mcusLength = int2bit(mcusLength.', 8).';
-    mcusSortedLengthDec{i} = bi2de(mcusLength, 'left-msb');
-    mcusSortedPayload{i} = mcusSorted{i}(:,18:end);
-end
+%% mcu extraction
+mcus = extraction(cvcdus);
 
 % %% reed-solomon correction
 % % de-interleaving

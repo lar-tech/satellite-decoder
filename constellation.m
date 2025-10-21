@@ -1,4 +1,4 @@
-function [softBits, correctConstellation] = constellation(symbols, Params)
+function softBits = constellation(symbols, Params)
     % sync word
     syncAsm = 'FCA2B63DB00D9794';
     syncAsmBytes = sscanf(syncAsm, '%2x').';
@@ -24,7 +24,6 @@ function [softBits, correctConstellation] = constellation(symbols, Params)
         [pks,locs] = findpeaks(corr, 'MinPeakDistance',15500, 'Threshold',40);
         width = mean(diff(locs))/16;
         if width >= 1020 || width <= 1030 && width==1024
-            correctConstellation = Params.constellations{i};
             if Params.plotting
                 figure;
                 plot(lags, corr); hold on;

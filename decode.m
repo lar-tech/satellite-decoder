@@ -1,4 +1,4 @@
-function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
+function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
     
     % viterbi-decoder
     trellis = poly2trellis(Viterbi.constLen, Viterbi.codeGenPoly);
@@ -57,7 +57,7 @@ function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
     % descrambler
     numFrames = numel(payloads);
     frameLenBytes = 1024;
-    cadus = zeros(numFrames, frameLenBytes, 'uint8');
+    % cadus = zeros(numFrames, frameLenBytes, 'uint8');
     cvcdus = zeros(numFrames, frameLenBytes-4, 'uint8');
 
     for i = 1:numFrames
@@ -68,8 +68,8 @@ function [cadus, cvcdus] = decode(softBits, Viterbi, Descrambler, Params)
         payloadDescrambled = diag(bitxor(payload, Descrambler.pn(idx)));
         cvcdus(i,:) = payloadDescrambled;
     
-        syncWord = decodedBits(lags(locs(i)) : lags(locs(i)) + length(syncAsmBits) - 1);
-        syncWord = uint8(bi2de(reshape(syncWord, 8, []).', 'left-msb'));
-        cadus(i, :) = vertcat(syncWord, payloadDescrambled);
+        % syncWord = decodedBits(lags(locs(i)) : lags(locs(i)) + length(syncAsmBits) - 1);
+        % syncWord = uint8(bi2de(reshape(syncWord, 8, []).', 'left-msb'));
+        % cadus(i, :) = vertcat(syncWord, payloadDescrambled);
     end
 end
