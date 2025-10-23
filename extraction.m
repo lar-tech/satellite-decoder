@@ -1,4 +1,5 @@
 function mcus = extraction(cvcdus)
+    % extract header infos
     vcdus = cvcdus(:,1:end-128);
     mpdus = vcdus(:,9:end);
     mpdusPayload = mpdus(:,3:end);
@@ -9,57 +10,52 @@ function mcus = extraction(cvcdus)
     
     
     mcus = {};
-    P = mod(mpduPointerDec(1), 2048);
-    idx = double(P + 1);
-    i = 1;
     row = 1;
-    
+    i = 1;
+    idx = double(mod(mpduPointerDec(1), 2048) + 1);
     while sum(cellfun(@numel, mcus)) < numel(mpdusPayload)
-        % Case: Header geht über 2 Zeilen
+        % Check: header continues onto the next row
         if idx+4 > size(mpdusPayload, 2)
+            % header spans across row and row + 1
             part1 = mpdusPayload(row, idx:end);
-            lenBytes = mpdusPayload(row+1, 5-size(part1,2) : 6-size(part1,2));
+            lenBytes = mpdusPayload(row+1, 5-size(part1,2):6-size(part1,2));
             lenBits = int2bit(lenBytes.', 8).';
             lenDec = double(bi2de(lenBits, 'left-msb'));
             totalLen = 6 + lenDec + 1;
-            idx = totalLen-size(part1,2)+1;
+            idx = totalLen - size(part1,2) + 1;
             part2 = mpdusPayload(row+1, 1:idx);
             mcus{i} = [part1, part2];
-            row = row+1;
+            row = row + 1;
+
         else
-            lenBytes = mpdusPayload(row, idx+4 : idx+5);
+            % header fully contained in current row
+            lenBytes = mpdusPayload(row, idx+4:idx+5);
             lenBits = int2bit(lenBytes.', 8).';
             lenDec = double(bi2de(lenBits, 'left-msb'));
             totalLen = 6 + lenDec + 1;
-    
             remaining = size(mpdusPayload, 2) - idx + 1;
-            
-            % Standard case
             if remaining > totalLen
-                mcus{i} = mpdusPayload(row, idx : idx+totalLen-1);
+                % standard case
+                mcus{i} = mpdusPayload(row, idx:idx+totalLen-1);
                 idx = idx+totalLen;
             
-            % kein FollowUp -> Paket endet perfekt
             elseif remaining == totalLen
+                % no follow-up packet -> packet ends perfectly
                 mcus{i} = mpdusPayload(row, idx:end);
+                idx = double(mod(mpduPointerDec(row+1), 2048) + 1);
+                row = row + 1;
+            
+            elseif row < size(mpdusPayload, 1)
+                % overflow into next row
+                part1 = mpdusPayload(row, idx:end);
+                part2 = mpdusPayload(row+1, 1 : totalLen - numel(part1));
+                mcus{i} = [part1, part2];
                 P = mod(mpduPointerDec(row+1), 2048);
                 idx = double(P + 1);
                 row = row + 1;
-            
             else
-                % Standard case über 2 Zeilen
-                if row < size(mpdusPayload, 1)
-                    part1 = mpdusPayload(row, idx:end);
-                    part2 = mpdusPayload(row+1, 1 : totalLen - numel(part1));
-                    mcus{i} = [part1, part2];
-                    P = mod(mpduPointerDec(row+1), 2048);
-                    idx = double(P + 1);
-                    row = row + 1;
-    
-                % Letztes MCU (unvollständig)
-                else
-                    mcus{i} = mpdusPayload(row, idx:end);
-                end
+                % last incomplete mcu
+                mcus{i} = mpdusPayload(row, idx:end);
             end
         end
         i = i+1;

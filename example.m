@@ -1,6 +1,6 @@
 clear; clc; close all;
 
-%% Frame Extraction
+%% cadu extraction
 filename = 'data/meteor_m2_lrpt.cadu';
 fid = fopen(filename,'rb');
 data = fread(fid,inf,'uint8');
@@ -20,71 +20,109 @@ for i = 1:numCadus
         cadus(i,:) = data(s:s+caduLength-1);
     end
 end
-
 cvcdus = cadus(:,5:end);
-vcdus = cvcdus(:,1:end-128);
-mpdus = vcdus(:,9:end);
-mpdusPayload = mpdus(:,3:end);
-mpdusHeader = mpdus(:,1:2);
-mpdusHeaderBits = int2bit(mpdusHeader.', 8).';
-mpduPointer = mpdusHeaderBits(:,6:end);
-mpduPointerDec = bi2de(mpduPointer, 'left-msb');
+
+%% partial packet extraction
+pp = extraction(cvcdus);
+
+% sort apids
+apids = cellfun(@(x) x(2), pp);
+uniqueApids = unique(apids);
+ppSorted = cell(1, numel(uniqueApids));
+for i = 1:numel(uniqueApids)
+    apid = uniqueApids(i);
+    rows = (apids == apid);
+    ppSorted{i} = pp(rows);
+end
+
+%% mcus
+mcusSorted = cell(1, numel(ppSorted));
+for i = 1:numel(ppSorted)
+    for j = 1:numel(ppSorted{i})
+        mcusSortedDec = ppSorted{i}{j}(1,21:end);
+        mcusSorted{i}{j} = int2bit(mcusSortedDec.', 8).';
+    end
+end
 
 
-mcus = {};
-P = mod(mpduPointerDec(1), 2048);
-idx = double(P + 1);
-i = 1;
-row = 1;
-totalLen = 0;
+%% jpeg decompression
+Huffmann.lDc.lengths = [0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0];
+Huffmann.lDc.symbols = uint8([0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08 0x09 0x0A 0x0B]);
 
-while sum(cellfun(@numel, mcus)) < numel(mpdusPayload)
-    % Case: Header geht über 2 Zeilen
-    if idx+4 > size(mpdusPayload, 2)
-        part1 = mpdusPayload(row, idx:end);
-        lenBytes = mpdusPayload(row+1, 5-size(part1,2) : 6-size(part1,2));
-        lenBits = int2bit(lenBytes.', 8).';
-        lenDec = double(bi2de(lenBits, 'left-msb'));
-        totalLen = 6 + lenDec + 1;
-        idx = totalLen-size(part1,2)+1;
-        part2 = mpdusPayload(row+1, 1:idx);
-        mcus{i} = [part1, part2];
-        row = row+1;
+Huffmann.lAc.lengths = [0 2 1 3 3 2 4 3 5 5 4 4 0 0 1 0x7D];
+Huffmann.lAc.symbols = uint8([
+                        0x01 0x02 0x03 0x00 0x04 0x11 0x05 0x12 0x21 0x31 0x41 0x06 0x13 0x51 0x61 0x07 ...
+                        0x22 0x71 0x14 0x32 0x81 0x91 0xA1 0x08 0x23 0x42 0xB1 0xC1 0x15 0x52 0xD1 0xF0 ...
+                        0x24 0x33 0x62 0x72 0x82 0x09 0x0A 0x16 0x17 0x18 0x19 0x1A 0x25 0x26 0x27 0x28 ...
+                        0x29 0x2A 0x34 0x35 0x36 0x37 0x38 0x39 0x3A 0x43 0x44 0x45 0x46 0x47 0x48 0x49 ...
+                        0x4A 0x53 0x54 0x55 0x56 0x57 0x58 0x59 0x5A 0x63 0x64 0x65 0x66 0x67 0x68 0x69 ...
+                        0x6A 0x73 0x74 0x75 0x76 0x77 0x78 0x79 0x7A 0x83 0x84 0x85 0x86 0x87 0x88 0x89 ...
+                        0x8A 0x92 0x93 0x94 0x95 0x96 0x97 0x98 0x99 0x9A 0xA2 0xA3 0xA4 0xA5 0xA6 0xA7 ...
+                        0xA8 0xA9 0xAA 0xB2 0xB3 0xB4 0xB5 0xB6 0xB7 0xB8 0xB9 0xBA 0xC2 0xC3 0xC4 0xC5 ...
+                        0xC6 0xC7 0xC8 0xC9 0xCA 0xD2 0xD3 0xD4 0xD5 0xD6 0xD7 0xD8 0xD9 0xDA 0xE1 0xE2 ...
+                        0xE3 0xE4 0xE5 0xE6 0xE7 0xE8 0xE9 0xEA 0xF1 0xF2 0xF3 0xF4 0xF5 0xF6 0xF7 0xF8 ...
+                        0xF9 0xFA
+                        ]);
+
+[dcDict, acDict] = huffman(Huffmann);
+
+function magnitude = decodeMagnitude(codeWord, bitArray)
+    if codeWord == 0
+        magnitude = 0;
+    end
+    bitsVal = double(bi2de(bitArray, 'left-msb'));
+    if bitArray(1) == 1
+        magnitude = bitsVal;
     else
-        lenBytes = mpdusPayload(row, idx+4 : idx+5);
-        lenBits = int2bit(lenBytes.', 8).';
-        lenDec = double(bi2de(lenBits, 'left-msb'));
-        totalLen = 6 + lenDec + 1;
+        magnitude = -((2^codeWord - 1) - bitsVal);
+    end
+end
 
-        remaining = size(mpdusPayload, 2) - idx + 1;
-        
-        % Standard case
-        if remaining > totalLen
-            mcus{i} = mpdusPayload(row, idx : idx+totalLen-1);
-            idx = idx+totalLen;
-        
-        % kein FollowUp -> Paket endet perfekt
-        elseif remaining == totalLen
-            mcus{i} = mpdusPayload(row, idx:end);
-            P = mod(mpduPointerDec(row+1), 2048);
-            idx = double(P + 1);
-            row = row + 1;
-        
-        else
-            % Standard case über 2 Zeilen
-            if row < size(mpdusPayload, 1)
-                part1 = mpdusPayload(row, idx:end);
-                part2 = mpdusPayload(row+1, 1 : totalLen - numel(part1));
-                mcus{i} = [part1, part2];
-                P = mod(mpduPointerDec(row+1), 2048);
-                idx = double(P + 1);
-                row = row + 1;
 
-            % Letztes MCU (unvollständig)
-            else
-                mcus{i} = mpdusPayload(row, idx:end);
+for i = 1:numel(mcusSorted)
+    for j = 1:numel(mcusSorted{i})
+        mcu = mcusSorted{i}{j};
+        
+        buffer = [];
+        pos = 1;
+        for k = 1:numel(mcu)
+            bit = mcu(k);
+            buffer = [buffer, bit];
+            pos = pos + 1;
+            codeWord = double(huffmandeco(double(buffer), dcDict)); % returns the length of the next codewort
+            if ~isempty(codeWord)
+                if codeWord == 0
+                    dcMagnitude = 0;
+                    break
+                end
+                bitArray = mcu(pos+1:pos+codeWord);
+                dcMagnitude = decodeMagnitude(codeWord, bitArray);
+                break
             end
         end
+
+        bitArray = [];
+        acMagnitudes = [];
+        buffer = [];
+        start = double(pos+codeWord);
+        for k = start:numel(mcu)
+            bit = mcu(k);
+            buffer = [buffer, bit];
+            pos = pos + 1;
+            codeWord = double(huffmandeco(double(buffer), acDict)); % returns the length of the next codewort
+            if ~isempty(codeWord)
+                if codeWord == 0
+                    break
+                end
+                bitArray = mcu(pos+1:pos+codeWord);
+                acMagnitude = decodeMagnitude(codeWord, bitArray);
+                acMagnitudes = [acMagnitudes, acMagnitude];
+                codeWord = [];
+                buffer = [];
+            end
+        end
+        
+        magnitudes = [dcMagnitude, acMagnitudes];
     end
-    i = i+1;
 end
+
