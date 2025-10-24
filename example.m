@@ -64,7 +64,8 @@ Huffmann.lAc.symbols = uint8([
                         0xF9 0xFA
                         ]);
 
-[dcDict, acDict] = huffman(Huffmann);
+[DCMap, ACMap] = huffman(Huffmann);
+
 
 function magnitude = decodeMagnitude(codeWord, bitArray)
     if codeWord == 0
@@ -74,55 +75,62 @@ function magnitude = decodeMagnitude(codeWord, bitArray)
     if bitArray(1) == 1
         magnitude = bitsVal;
     else
-        magnitude = -((2^codeWord - 1) - bitsVal);
+        magnitude = -((2^double(codeWord) - 1) - bitsVal);
     end
 end
 
+magnitudes = cell(1, 4);
+for i = 1:4
+    for j = 1:numel(mcusSorted{i})
+        magnitudes{i}{j} = zeros(1, 64);
+    end
+end
 
 for i = 1:numel(mcusSorted)
     for j = 1:numel(mcusSorted{i})
         mcu = mcusSorted{i}{j};
-        
-        buffer = [];
         pos = 1;
-        for k = 1:numel(mcu)
-            bit = mcu(k);
-            buffer = [buffer, bit];
-            pos = pos + 1;
-            codeWord = double(huffmandeco(double(buffer), dcDict)); % returns the length of the next codewort
-            if ~isempty(codeWord)
-                if codeWord == 0
-                    dcMagnitude = 0;
-                    break
-                end
-                bitArray = mcu(pos+1:pos+codeWord);
-                dcMagnitude = decodeMagnitude(codeWord, bitArray);
-                break
-            end
-        end
 
-        bitArray = [];
-        acMagnitudes = [];
-        buffer = [];
-        start = double(pos+codeWord);
-        for k = start:numel(mcu)
-            bit = mcu(k);
-            buffer = [buffer, bit];
-            pos = pos + 1;
-            codeWord = double(huffmandeco(double(buffer), acDict)); % returns the length of the next codewort
-            if ~isempty(codeWord)
-                if codeWord == 0
-                    break
+        % DC Part
+        for k = 1:9
+            key = sprintf('%d', mcu(pos:pos+k-1));
+            if isKey(DCMap.symbols,key)
+                nextSymbolLength = double(DCMap.symbols(key));
+                if nextSymbolLength ~= 0 
+                    bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
+                    dcMagnitude = decodeMagnitude(nextSymbolLength, bitArray);
+                    break;
+                else
+                    dcMagnitude = 0;
                 end
-                bitArray = mcu(pos+1:pos+codeWord);
-                acMagnitude = decodeMagnitude(codeWord, bitArray);
-                acMagnitudes = [acMagnitudes, acMagnitude];
-                codeWord = [];
-                buffer = [];
             end
         end
-        
-        magnitudes = [dcMagnitude, acMagnitudes];
+        pos = pos + k + nextSymbolLength;
+
+        % AC Part
+        acMagnitudes = zeros(1,63);
+        acCount = 1;
+        while pos <= numel(mcu)
+            found = false;
+            for k = 1:min(16, numel(mcu)-pos+1)
+                key = sprintf('%d', mcu(pos:pos+k-1));
+                if isKey(ACMap.symbols,key)
+                    if ACMap.symbols(key) == 0, break; end
+                    if pos+k+double(ACMap.symbols(key))-1 > numel(mcu)
+                        break;  % Ende erreicht
+                    end
+                    nextSymbolLength = double(ACMap.symbols(key));
+                    bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
+                    acMagnitudes(acCount) = decodeMagnitude(nextSymbolLength, bitArray);
+                    acCount = acCount + 1;
+                    pos = pos + k + nextSymbolLength;
+                    found = true;
+                    break;
+                end
+
+            end
+            if ~found, break; end
+        end
+        magnitudes{i}{j} = [dcMagnitude, acMagnitudes];
     end
 end
-

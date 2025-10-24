@@ -1,4 +1,4 @@
-function [dcDict, acDict] = huffman(Huffmann)
+function [DCMap, ACMap] = huffman(Huffmann)
     function dict = generateDict(lengths, symbols)
         code = 0;            
         k = 1;                
@@ -10,7 +10,7 @@ function [dcDict, acDict] = huffman(Huffmann)
             for n = 1:lengths(len)
                 bits = dec2bin(code, len) - '0';
                 dict{row, 1} = symbols(k);
-                dict{row, 2} = bits;
+                dict{row, 2} = sprintf('%d',bits);
                 code = code + 1;
                 k = k + 1;
                 row = row + 1;
@@ -20,4 +20,8 @@ function [dcDict, acDict] = huffman(Huffmann)
 
     dcDict = generateDict(Huffmann.lDc.lengths, Huffmann.lDc.symbols);
     acDict = generateDict(Huffmann.lAc.lengths, Huffmann.lAc.symbols);
+    DCMap.lengths = containers.Map(dcDict(:,1), dcDict(:,2));
+    DCMap.symbols = containers.Map(dcDict(:,2), dcDict(:,1));
+    ACMap.lengths = containers.Map(acDict(:,1), acDict(:,2));
+    ACMap.symbols = containers.Map(acDict(:,2), acDict(:,1));
 end
