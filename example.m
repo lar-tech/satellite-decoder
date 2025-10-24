@@ -45,12 +45,12 @@ for i = 1:numel(ppSorted)
 end
 
 
-%% jpeg decompression
-Huffmann.lDc.lengths = [0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0];
-Huffmann.lDc.symbols = uint8([0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08 0x09 0x0A 0x0B]);
+%% jpeg decoding
+Huffman.lDc.lengths = [0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0];
+Huffman.lDc.symbols = uint8([0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08 0x09 0x0A 0x0B]);
 
-Huffmann.lAc.lengths = [0 2 1 3 3 2 4 3 5 5 4 4 0 0 1 0x7D];
-Huffmann.lAc.symbols = uint8([
+Huffman.lAc.lengths = [0 2 1 3 3 2 4 3 5 5 4 4 0 0 1 0x7D];
+Huffman.lAc.symbols = uint8([
                         0x01 0x02 0x03 0x00 0x04 0x11 0x05 0x12 0x21 0x31 0x41 0x06 0x13 0x51 0x61 0x07 ...
                         0x22 0x71 0x14 0x32 0x81 0x91 0xA1 0x08 0x23 0x42 0xB1 0xC1 0x15 0x52 0xD1 0xF0 ...
                         0x24 0x33 0x62 0x72 0x82 0x09 0x0A 0x16 0x17 0x18 0x19 0x1A 0x25 0x26 0x27 0x28 ...
@@ -64,9 +64,31 @@ Huffmann.lAc.symbols = uint8([
                         0xF9 0xFA
                         ]);
 
-[DCMap, ACMap] = huffman(Huffmann);
+DCT.zigzagTable =   [
+                    0  1  5  6 14 15 27 28;
+                    2  4  7 13 16 26 29 42;
+                    3  8 12 17 25 30 41 43;
+                    9 11 18 24 31 40 44 53;
+                    10 19 23 32 39 45 52 54;
+                    20 22 33 38 46 51 55 60;
+                    21 34 37 47 50 56 59 61;
+                    35 36 48 49 57 58 62 63
+                    ];
 
+DCT.quantizationTable = [
+                        16 11 10 16 24 40 51 61;
+                        12 12 14 19 26 58 60 55;
+                        14 13 16 24 40 57 69 56;
+                        14 17 22 29 51 87 80 62;
+                        18 22 37 56 68 109 103 77;
+                        24 35 55 64 81 104 113 92;
+                        49 64 78 87 103 121 120 101;
+                        72 92 95 98 112 100 103 99
+                        ];
 
+% jpegImage = imaging(mcusSorted, Huffman, DCT);
+
+% calculate magnitude
 function magnitude = decodeMagnitude(codeWord, bitArray)
     if codeWord == 0
         magnitude = 0;
@@ -79,6 +101,9 @@ function magnitude = decodeMagnitude(codeWord, bitArray)
     end
 end
 
+[DCMap, ACMap] = huffman(Huffman);
+
+% huffman, run-size decoding
 magnitudes = cell(1, 4);
 for i = 1:4
     for j = 1:numel(mcusSorted{i})
@@ -86,8 +111,8 @@ for i = 1:4
     end
 end
 
-for i = 1:1%numel(mcusSorted)
-    for j = 1:1%numel(mcusSorted{i})
+for i = 1:numel(mcusSorted)
+    for j = 1:numel(mcusSorted{i})
         mcu = mcusSorted{i}{j};
         pos = 1;
 
@@ -96,7 +121,7 @@ for i = 1:1%numel(mcusSorted)
             key = sprintf('%d', mcu(pos:pos+k-1));
             if isKey(DCMap.symbols,key)
                 nextSymbolLength = double(DCMap.symbols(key));
-                if nextSymbolLength ~= 0 
+                if nextSymbolLength ~= 0 % EOB
                     bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
                     dcMagnitude = decodeMagnitude(nextSymbolLength, bitArray);
                     break;
@@ -125,7 +150,7 @@ for i = 1:1%numel(mcusSorted)
                     end
                     
                     if pos+k+double(ACMap.symbols(key))-1 > numel(mcu)
-                        break;  % Ende erreicht
+                        break;  % end
                     end
                     runsize = str2double(split(ACMap.symbols(key), '/'));
                     acCount = acCount + runsize(1);
@@ -137,7 +162,6 @@ for i = 1:1%numel(mcusSorted)
                     found = true;
                     break;
                 end
-
             end
             if ~found, break; end
             if ACMap.symbols(key) == 240, continue; end
@@ -146,37 +170,50 @@ for i = 1:1%numel(mcusSorted)
     end
 end
 
-magnitudes = magnitudes{1}{1};
-
-DCT.zigzagTable = [
-     0  1  5  6 14 15 27 28;
-     2  4  7 13 16 26 29 42;
-     3  8 12 17 25 30 41 43;
-     9 11 18 24 31 40 44 53;
-    10 19 23 32 39 45 52 54;
-    20 22 33 38 46 51 55 60;
-    21 34 37 47 50 56 59 61;
-    35 36 48 49 57 58 62 63];
-
-DCT.quantizationTable = [
-16 11 10 16 24 40 51 61;
-12 12 14 19 26 58 60 55;
-14 13 16 24 40 57 69 56;
-14 17 22 29 51 87 80 62;
-18 22 37 56 68 109 103 77;
-24 35 55 64 81 104 113 92;
-49 64 78 87 103 121 120 101;
-72 92 95 98 112 100 103 99];
-
-zigzag = zeros(8,8);
-
-for idx = 0:63
-    [r, c] = find(DCT.zigzagTable == idx);
-    zigzag(r,c) = magnitudes(idx+1);
+% zig-zag, dct decoding
+spatials = cell(1, 4);
+for i = 1:4
+    for j = 1:numel(magnitudes{i})
+        spatials{i}{j} = zeros(1, 64);
+    end
+end
+for i = 1:numel(magnitudes)
+    for j = 1:numel(magnitudes{i})
+        magnitude = magnitudes{i}{j};
+        zigzag = zeros(8,8);
+        for idx = 0:63
+            [r, c] = find(DCT.zigzagTable == idx);
+            zigzag(r,c) = magnitude(idx+1);
+        end
+        zigzagQuant = zigzag .* DCT.quantizationTable;
+        spatials{i}{j} = idct2(zigzagQuant) + 128;
+    end
 end
 
-
-zigzagQuant = zigzag .* DCT.quantizationTable;
-
-iDCT = idct2(zigzagQuant);
-imshow(iDCT)
+% combine image
+for i = 1:numel(spatials)
+    spatial = spatials{i};
+    blockSize = 8;
+    blocksPerRow = 14;
+    numBlocks = numel(spatial);
+    numRows = ceil(numBlocks / blocksPerRow);
+    combined = zeros(numRows * size(spatial{1}, 1), blocksPerRow * blockSize);
+    
+    idx = 1;
+    for row = 1:numRows
+        for col = 1:blocksPerRow
+            if idx > numBlocks
+                break;
+            end
+            yStart = (row-1)*blockSize + 1;
+            yEnd   = row*blockSize;
+            xStart = (col-1)*blockSize + 1;
+            xEnd   = col*blockSize;
+            combined(yStart:yEnd, xStart:xEnd) = spatial{idx};
+            idx = idx + 1;
+        end
+    end
+    jpegImage = uint8(combined);
+    figure(i);
+    imshow(jpegImage);
+end
