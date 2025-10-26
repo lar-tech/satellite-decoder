@@ -37,8 +37,10 @@ end
 
 %% mcus
 mcusSorted = cell(1, numel(ppSorted));
+qualityFactor = cell(1, numel(ppSorted));
 for i = 1:numel(ppSorted)
     for j = 1:numel(ppSorted{i})
+        qualityFactor{i}{j} = ppSorted{i}{j}(1,20);
         mcusSortedDec = ppSorted{i}{j}(1,21:end);
         mcusSorted{i}{j} = int2bit(mcusSortedDec.', 8).';
     end
@@ -74,6 +76,17 @@ DCT.zigzagTable =   [
                     21 34 37 47 50 56 59 61;
                     35 36 48 49 57 58 62 63
                     ];
+
+DCT.zigzagTableReversed =   [
+                             0  1  8 16  9  2  3 10;
+                            17 24 32 25 18 11  4  5;
+                            12 19 26 33 40 48 41 34;
+                            27 20 13  6  7 14 21 28;
+                            35 42 49 56 57 50 43 36;
+                            29 22 15 23 30 37 44 51;
+                            58 59 52 45 38 31 39 46;
+                            53 60 61 54 47 55 62 63
+                            ];
 
 DCT.quantizationTable = [
                         16 11 10 16 24 40 51 61;
@@ -170,7 +183,49 @@ for i = 1:numel(mcusSorted)
     end
 end
 
+% differential encoding of DC values
+for i = 1:numel(magnitudes)
+    dcValues = zeros(1, numel(magnitudes{i}));
+    for j = 1:numel(magnitudes{i})
+        if j == 1 || mod(j,14) == 0
+            dcValues(j) = magnitudes{i}{j}(1);
+        else
+            dcValues(j) = dcValues(j-1) + magnitudes{i}{j}(1);
+        end
+    end
+
+    for j = 1:numel(magnitudes{i})
+        magnitudes{i}{j}(1) = dcValues(j);
+    end
+end
+
+% quality factor
+F = cell(1, numel(qualityFactor));
+for i = 1:numel(qualityFactor)
+    for j = 1:numel(qualityFactor{i})
+        if 20 < qualityFactor{i}{j} && qualityFactor{i}{j} < 50
+            F{i}{j} = 5000 / qualityFactor{i}{j};
+        elseif 50 <= qualityFactor{i}{j} && qualityFactor{i}{j} <= 100
+            F{i}{j} = 200 - 2 * qualityFactor{i}{j};
+        else
+            F{i}{j} = 100;
+        end
+    end
+end
+
 % zig-zag, dct decoding
+% idx = 5;
+% magnitude = magnitudes{1}{idx};
+% zigzag = zeros(8,8);
+% 
+% for k = 0:63
+%     [r, c] = find(DCT.zigzagTableReversed == k);
+%     zigzag(r,c) = magnitude(k+1);
+% end
+% zigzagQuant = zigzag .* DCT.quantizationTable * double(F{1}{idx})/100;
+% spatials = idct2(zigzagQuant) + 128;
+
+
 spatials = cell(1, 4);
 for i = 1:4
     for j = 1:numel(magnitudes{i})
@@ -181,16 +236,26 @@ for i = 1:numel(magnitudes)
     for j = 1:numel(magnitudes{i})
         magnitude = magnitudes{i}{j};
         zigzag = zeros(8,8);
-        for idx = 0:63
-            [r, c] = find(DCT.zigzagTable == idx);
-            zigzag(r,c) = magnitude(idx+1);
+        for k = 0:63
+            [r, c] = find(DCT.zigzagTableReversed == k);
+            zigzag(r,c) = magnitude(k+1);
         end
-        zigzagQuant = zigzag .* DCT.quantizationTable;
+        zigzagQuant = zigzag .* DCT.quantizationTable * double(F{i}{j})/100;
         spatials{i}{j} = idct2(zigzagQuant) + 128;
     end
 end
 
-% combine image
+% % combine image
+% jpegImage = [];
+% for i = 1:14
+%     mcu = [];
+%     for j = 1:14
+%         mcu = [mcu, spatials{i}{j}];
+%     end
+%     jpegImage = [jpegImage; mcu];
+% end
+% imshow(uint8(jpegImage))
+
 for i = 1:numel(spatials)
     spatial = spatials{i};
     blockSize = 8;
@@ -198,7 +263,7 @@ for i = 1:numel(spatials)
     numBlocks = numel(spatial);
     numRows = ceil(numBlocks / blocksPerRow);
     combined = zeros(numRows * size(spatial{1}, 1), blocksPerRow * blockSize);
-    
+
     idx = 1;
     for row = 1:numRows
         for col = 1:blocksPerRow
