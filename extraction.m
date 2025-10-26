@@ -1,4 +1,4 @@
-function mcus = extraction(cvcdus)
+function pp = extraction(cvcdus)
     % extract header infos
     vcdus = cvcdus(:,1:end-128);
     mpdus = vcdus(:,9:end);
@@ -9,11 +9,11 @@ function mcus = extraction(cvcdus)
     mpduPointerDec = bi2de(mpduPointer, 'left-msb');
     
     
-    mcus = {};
+    pp = {};
     row = 1;
     i = 1;
     idx = double(mod(mpduPointerDec(1), 2048) + 1);
-    while sum(cellfun(@numel, mcus)) < numel(mpdusPayload)
+    while sum(cellfun(@numel, pp)) < numel(mpdusPayload)
         % Check: header continues onto the next row
         if idx+4 > size(mpdusPayload, 2)
             % header spans across row and row + 1
@@ -24,7 +24,7 @@ function mcus = extraction(cvcdus)
             totalLen = 6 + lenDec + 1;
             idx = totalLen - size(part1,2) + 1;
             part2 = mpdusPayload(row+1, 1:idx);
-            mcus{i} = [part1, part2];
+            pp{i} = [part1, part2];
             row = row + 1;
 
         else
@@ -36,12 +36,12 @@ function mcus = extraction(cvcdus)
             remaining = size(mpdusPayload, 2) - idx + 1;
             if remaining > totalLen
                 % standard case
-                mcus{i} = mpdusPayload(row, idx:idx+totalLen-1);
+                pp{i} = mpdusPayload(row, idx:idx+totalLen-1);
                 idx = idx+totalLen;
             
             elseif remaining == totalLen
                 % no follow-up packet -> packet ends perfectly
-                mcus{i} = mpdusPayload(row, idx:end);
+                pp{i} = mpdusPayload(row, idx:end);
                 idx = double(mod(mpduPointerDec(row+1), 2048) + 1);
                 row = row + 1;
             
@@ -49,13 +49,13 @@ function mcus = extraction(cvcdus)
                 % overflow into next row
                 part1 = mpdusPayload(row, idx:end);
                 part2 = mpdusPayload(row+1, 1 : totalLen - numel(part1));
-                mcus{i} = [part1, part2];
+                pp{i} = [part1, part2];
                 P = mod(mpduPointerDec(row+1), 2048);
                 idx = double(P + 1);
                 row = row + 1;
             else
                 % last incomplete mcu
-                mcus{i} = mpdusPayload(row, idx:end);
+                pp{i} = mpdusPayload(row, idx:end);
             end
         end
         i = i+1;
