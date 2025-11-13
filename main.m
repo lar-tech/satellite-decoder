@@ -7,7 +7,7 @@ Data.minDataIdx = 1;                % min position of samples
 Data.maxDataIdx = 500000;           % max position of samples
 
 % general
-Params.plotting = false;            
+Params.plotting = true;            
 Params.minClip = -0.01;             % min value for clipping
 Params.maxClip = 0.01;              % max value for clippling
 Params.M = 4;                       % mumber of symbols
@@ -126,204 +126,72 @@ softBits = constellation(symbols, Params);
 %% decoding and descrambling
 cvcdus = decode(softBits, Viterbi, Descrambler, Params);
 
-%% reed-solomon correction
-% % de-interleaving
-% deinterleavedBlocks = zeros(size(cvcdus, 1), ReedSolomon.interleavingDepth, ReedSolomon.codeWordLength, 'uint8');
-% for i = 1:size(cvcdus, 1)
-%     cvcdu = cvcdus(i, :);
-%     for j = 1:ReedSolomon.interleavingDepth
-%         deinterleavedBlocks(i, j, :) = cvcdu(j:ReedSolomon.interleavingDepth:end);
-%     end
+% %% reed-solomon correction
+% % % de-interleaving
+% % deinterleavedBlocks = zeros(size(cvcdus, 1), ReedSolomon.interleavingDepth, ReedSolomon.codeWordLength, 'uint8');
+% % for i = 1:size(cvcdus, 1)
+% %     cvcdu = cvcdus(i, :);
+% %     for j = 1:ReedSolomon.interleavingDepth
+% %         deinterleavedBlocks(i, j, :) = cvcdu(j:ReedSolomon.interleavingDepth:end);
+% %     end
+% % end
+% % 
+% % % reed-solomon decoder
+% % generatorPolynomial = rsgenpoly( ...
+% %                         ReedSolomon.codeWordLength, ...
+% %                         ReedSolomon.messageLength, ...
+% %                         bi2de(ReedSolomon.primitivePolynomial, ...
+% %                         'left-msb'));
+% % rsDec = comm.RSDecoder( ...
+% %             'CodewordLength', ReedSolomon.codeWordLength, ...
+% %             'MessageLength', ReedSolomon.messageLength, ...   
+% %             'GeneratorPolynomialSource', 'Property', ...
+% %             'GeneratorPolynomial', generatorPolynomial, ...
+% %             'PrimitivePolynomialSource', 'Property', ...
+% %             'PrimitivePolynomial', ReedSolomon.primitivePolynomial ...
+% %         );
+% % correctedBlocks = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth, ReedSolomon.messageLength, 'uint8');
+% % numErrors       = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth);
+% % for i = 1:size(deinterleavedBlocks, 1)
+% %     for j = 1:ReedSolomon.interleavingDepth
+% %         [decoded, errCount] = rsDec(squeeze(deinterleavedBlocks(i, j, :)));
+% %         correctedBlocks(i, j, :) = decoded;
+% %         numErrors(i, j) = errCount;
+% %         fprintf('Frame %d, Block %d: %d Bytefehler korrigiert\n', i, j, errCount);
+% %     end
+% % end
+% % 
+% % % re-interleaving
+% % reinterleavedBytes = zeros(size(correctedBlocks, 1), ReedSolomon.interleavingDepth * ReedSolomon.messageLength, 'uint8');
+% % for i = 1:size(correctedBlocks, 1)
+% %     correctedBlock = squeeze(correctedBlocks(i, :, :));
+% %     reinterleavedBytes(i, :) = reshape(correctedBlock.', 1, []);
+% % end
+% % bitsPerByte = 8;
+% % reinterleavedBits = de2bi(reinterleavedBytes, bitsPerByte, 'left-msb');
+% % reinterleavedBits = reshape(reinterleavedBits.', size(correctedBlocks, 1), []);
+% % vcdus = logical(reinterleavedBits);
+% 
+% %% partial packet extraction
+% pp = extraction(cvcdus);
+% 
+% % sort apids
+% apids = cellfun(@(x) x(2), pp);
+% uniqueApids = unique(apids);
+% ppSorted = cell(1, numel(uniqueApids));
+% for i = 1:numel(uniqueApids)
+%     apid = uniqueApids(i);
+%     rows = (apids == apid);
+%     ppSorted{i} = pp(rows);
 % end
 % 
-% % reed-solomon decoder
-% generatorPolynomial = rsgenpoly( ...
-%                         ReedSolomon.codeWordLength, ...
-%                         ReedSolomon.messageLength, ...
-%                         bi2de(ReedSolomon.primitivePolynomial, ...
-%                         'left-msb'));
-% rsDec = comm.RSDecoder( ...
-%             'CodewordLength', ReedSolomon.codeWordLength, ...
-%             'MessageLength', ReedSolomon.messageLength, ...   
-%             'GeneratorPolynomialSource', 'Property', ...
-%             'GeneratorPolynomial', generatorPolynomial, ...
-%             'PrimitivePolynomialSource', 'Property', ...
-%             'PrimitivePolynomial', ReedSolomon.primitivePolynomial ...
-%         );
-% correctedBlocks = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth, ReedSolomon.messageLength, 'uint8');
-% numErrors       = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth);
-% for i = 1:size(deinterleavedBlocks, 1)
-%     for j = 1:ReedSolomon.interleavingDepth
-%         [decoded, errCount] = rsDec(squeeze(deinterleavedBlocks(i, j, :)));
-%         correctedBlocks(i, j, :) = decoded;
-%         numErrors(i, j) = errCount;
-%         fprintf('Frame %d, Block %d: %d Bytefehler korrigiert\n', i, j, errCount);
+% %% mcus
+% mcusSorted = cell(1, numel(ppSorted));
+% for i = 1:numel(ppSorted)
+%     for j = 1:numel(ppSorted{i})
+%         mcusSortedDec = ppSorted{i}{j}(1,21:end);
+%         mcusSorted{i}{j} = int2bit(mcusSortedDec.', 8).';
 %     end
 % end
-% 
-% % re-interleaving
-% reinterleavedBytes = zeros(size(correctedBlocks, 1), ReedSolomon.interleavingDepth * ReedSolomon.messageLength, 'uint8');
-% for i = 1:size(correctedBlocks, 1)
-%     correctedBlock = squeeze(correctedBlocks(i, :, :));
-%     reinterleavedBytes(i, :) = reshape(correctedBlock.', 1, []);
-% end
-% bitsPerByte = 8;
-% reinterleavedBits = de2bi(reinterleavedBytes, bitsPerByte, 'left-msb');
-% reinterleavedBits = reshape(reinterleavedBits.', size(correctedBlocks, 1), []);
-% vcdus = logical(reinterleavedBits);
-
-%% partial packet extraction
-pp = extraction(cvcdus);
-
-% sort apids
-apids = cellfun(@(x) x(2), pp);
-uniqueApids = unique(apids);
-ppSorted = cell(1, numel(uniqueApids));
-for i = 1:numel(uniqueApids)
-    apid = uniqueApids(i);
-    rows = (apids == apid);
-    ppSorted{i} = pp(rows);
-end
-
-%% mcus
-mcusSorted = cell(1, numel(ppSorted));
-for i = 1:numel(ppSorted)
-    for j = 1:numel(ppSorted{i})
-        mcusSortedDec = ppSorted{i}{j}(1,21:end);
-        mcusSorted{i}{j} = int2bit(mcusSortedDec.', 8).';
-    end
-end
-
 
 %% jpeg decoding
-% jpegImage = imaging(mcusSorted, Huffman, DCT);
-
-% % calculate magnitude
-% function magnitude = decodeMagnitude(codeWord, bitArray)
-%     if codeWord == 0
-%         magnitude = 0;
-%     end
-%     bitsVal = double(bi2de(bitArray, 'left-msb'));
-%     if bitArray(1) == 1
-%         magnitude = bitsVal;
-%     else
-%         magnitude = -((2^double(codeWord) - 1) - bitsVal);
-%     end
-% end
-% 
-% [DCMap, ACMap] = huffman(Huffman);
-% 
-% % huffman, run-size decoding
-% magnitudes = cell(1, 4);
-% for i = 1:4
-%     for j = 1:numel(mcusSorted{i})
-%         magnitudes{i}{j} = zeros(1, 64);
-%     end
-% end
-% 
-% for i = 1:numel(mcusSorted)
-%     for j = 1:numel(mcusSorted{i})
-%         mcu = mcusSorted{i}{j};
-%         pos = 1;
-% 
-%         % DC Part
-%         for k = 1:9
-%             key = sprintf('%d', mcu(pos:pos+k-1));
-%             if isKey(DCMap.symbols,key)
-%                 nextSymbolLength = double(DCMap.symbols(key));
-%                 if nextSymbolLength ~= 0 % EOB
-%                     bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
-%                     dcMagnitude = decodeMagnitude(nextSymbolLength, bitArray);
-%                     break;
-%                 else
-%                     dcMagnitude = 0;
-%                 end
-%             end
-%         end
-%         pos = pos + k + nextSymbolLength;
-% 
-%         % AC Part
-%         acMagnitudes = zeros(1,63);
-%         acCount = 1;
-%         while pos <= numel(mcu)
-%             found = false;
-%             for k = 1:min(16, numel(mcu)-pos+1)
-%                 key = sprintf('%d', mcu(pos:pos+k-1));
-%                 if isKey(ACMap.symbols,key)
-%                     if strcmp(ACMap.symbols(key), '0/0') % EOB
-%                         break; 
-%                     elseif strcmp(ACMap.symbols(key), '15/0') % ZRL 
-%                         acCount = acCount + 16;
-%                         pos = pos + 11;
-%                         found = true;
-%                         break;
-%                     end
-% 
-%                     if pos+k+double(ACMap.symbols(key))-1 > numel(mcu)
-%                         break;  % end
-%                     end
-%                     runsize = str2double(split(ACMap.symbols(key), '/'));
-%                     acCount = acCount + runsize(1);
-%                     nextSymbolLength = runsize(2);
-%                     bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
-%                     acMagnitudes(acCount) = decodeMagnitude(nextSymbolLength, bitArray);
-%                     acCount = acCount + 1;
-%                     pos = pos + k + nextSymbolLength;
-%                     found = true;
-%                     break;
-%                 end
-%             end
-%             if ~found, break; end
-%             if ACMap.symbols(key) == 240, continue; end
-%         end
-%         magnitudes{i}{j} = [dcMagnitude, acMagnitudes];
-%     end
-% end
-% 
-% % zig-zag, dct decoding
-% spatials = cell(1, 4);
-% for i = 1:4
-%     for j = 1:numel(magnitudes{i})
-%         spatials{i}{j} = zeros(1, 64);
-%     end
-% end
-% for i = 1:numel(magnitudes)
-%     for j = 1:numel(magnitudes{i})
-%         magnitude = magnitudes{i}{j};
-%         zigzag = zeros(8,8);
-%         for idx = 0:63
-%             [r, c] = find(DCT.zigzagTable == idx);
-%             zigzag(r,c) = magnitude(idx+1);
-%         end
-%         zigzagQuant = zigzag .* DCT.quantizationTable;
-%         spatials{i}{j} = idct2(zigzagQuant) + 128;
-%     end
-% end
-% 
-% % combine image
-% for i = 1:numel(spatials)
-%     spatial = spatials{i};
-%     blockSize = 8;
-%     blocksPerRow = 14;
-%     numBlocks = numel(spatial);
-%     numRows = ceil(numBlocks / blocksPerRow);
-%     combined = zeros(numRows * size(spatial{1}, 1), blocksPerRow * blockSize);
-% 
-%     idx = 1;
-%     for row = 1:numRows
-%         for col = 1:blocksPerRow
-%             if idx > numBlocks
-%                 break;
-%             end
-%             yStart = (row-1)*blockSize + 1;
-%             yEnd   = row*blockSize;
-%             xStart = (col-1)*blockSize + 1;
-%             xEnd   = col*blockSize;
-%             combined(yStart:yEnd, xStart:xEnd) = spatial{idx};
-%             idx = idx + 1;
-%         end
-%     end
-%     jpegImage = uint8(combined);
-%     figure(i);
-%     imshow(jpegImage);
-% end
