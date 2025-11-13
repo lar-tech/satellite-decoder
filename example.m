@@ -220,7 +220,7 @@ end
 % 
 % for k = 0:63
 %     [r, c] = find(DCT.zigzagTableReversed == k);
-%     zigzag(r,c) = magnitude(k+1);
+%     zigzag(r,c) = magnitude(k+1); 
 % end
 % zigzagQuant = zigzag .* DCT.quantizationTable * double(F{1}{idx})/100;
 % spatials = idct2(zigzagQuant) + 128;
