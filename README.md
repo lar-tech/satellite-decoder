@@ -1,11 +1,8 @@
 # Open Tasks
-- JPEG Decoding
-
-
-- fft erstellen (waterfall plot)
-- snr darstellen (im freq. bereich)
-- kurzzeit-fourier trafo (überlappende fenster)
-    - wasserfall plot
-- nur jpeg dekoder nutzen
-
-- Antenna verifizieren
+- Meteor M2:
+    - create image from .wav (read in blocks)
+- Meteor M2-4:
+    - create FFT
+        - over time (waterfall plot)
+        - calculate snr
+    - verify antenna
