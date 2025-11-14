@@ -77,9 +77,10 @@ ReedSolomon.codeWordLength = 255;                       % n = 2^(bitsPerSymbol)-
 ReedSolomon.messageLength = 223;                        % k = n - 2E
 ReedSolomon.primitivePolynomial = [1 1 0 0 0 0 1 1 1];  % x^8 + x^7 + x^2 + x + 1
 
-% huffman decoder
+% jpeg decoding
 Huffman.lDc.lengths = [0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0];
 Huffman.lDc.symbols = uint8([0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08 0x09 0x0A 0x0B]);
+
 Huffman.lAc.lengths = [0 2 1 3 3 2 4 3 5 5 4 4 0 0 1 0x7D];
 Huffman.lAc.symbols = uint8([
                         0x01 0x02 0x03 0x00 0x04 0x11 0x05 0x12 0x21 0x31 0x41 0x06 0x13 0x51 0x61 0x07 ...
@@ -95,7 +96,6 @@ Huffman.lAc.symbols = uint8([
                         0xF9 0xFA
                         ]);
 
-% dct-transform
 DCT.zigzagTable =   [
                     0  1  5  6 14 15 27 28;
                     2  4  7 13 16 26 29 42;
@@ -106,6 +106,18 @@ DCT.zigzagTable =   [
                     21 34 37 47 50 56 59 61;
                     35 36 48 49 57 58 62 63
                     ];
+
+DCT.zigzagTableReversed =   [
+                             0  1  8 16  9  2  3 10;
+                            17 24 32 25 18 11  4  5;
+                            12 19 26 33 40 48 41 34;
+                            27 20 13  6  7 14 21 28;
+                            35 42 49 56 57 50 43 36;
+                            29 22 15 23 30 37 44 51;
+                            58 59 52 45 38 31 39 46;
+                            53 60 61 54 47 55 62 63
+                            ];
+
 DCT.quantizationTable = [
                         16 11 10 16 24 40 51 61;
                         12 12 14 19 26 58 60 55;
@@ -126,72 +138,54 @@ softBits = constellation(symbols, Params);
 %% decoding and descrambling
 cvcdus = decode(softBits, Viterbi, Descrambler, Params);
 
-% %% reed-solomon correction
-% % % de-interleaving
-% % deinterleavedBlocks = zeros(size(cvcdus, 1), ReedSolomon.interleavingDepth, ReedSolomon.codeWordLength, 'uint8');
-% % for i = 1:size(cvcdus, 1)
-% %     cvcdu = cvcdus(i, :);
-% %     for j = 1:ReedSolomon.interleavingDepth
-% %         deinterleavedBlocks(i, j, :) = cvcdu(j:ReedSolomon.interleavingDepth:end);
-% %     end
-% % end
-% % 
-% % % reed-solomon decoder
-% % generatorPolynomial = rsgenpoly( ...
-% %                         ReedSolomon.codeWordLength, ...
-% %                         ReedSolomon.messageLength, ...
-% %                         bi2de(ReedSolomon.primitivePolynomial, ...
-% %                         'left-msb'));
-% % rsDec = comm.RSDecoder( ...
-% %             'CodewordLength', ReedSolomon.codeWordLength, ...
-% %             'MessageLength', ReedSolomon.messageLength, ...   
-% %             'GeneratorPolynomialSource', 'Property', ...
-% %             'GeneratorPolynomial', generatorPolynomial, ...
-% %             'PrimitivePolynomialSource', 'Property', ...
-% %             'PrimitivePolynomial', ReedSolomon.primitivePolynomial ...
-% %         );
-% % correctedBlocks = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth, ReedSolomon.messageLength, 'uint8');
-% % numErrors       = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth);
-% % for i = 1:size(deinterleavedBlocks, 1)
-% %     for j = 1:ReedSolomon.interleavingDepth
-% %         [decoded, errCount] = rsDec(squeeze(deinterleavedBlocks(i, j, :)));
-% %         correctedBlocks(i, j, :) = decoded;
-% %         numErrors(i, j) = errCount;
-% %         fprintf('Frame %d, Block %d: %d Bytefehler korrigiert\n', i, j, errCount);
-% %     end
-% % end
-% % 
-% % % re-interleaving
-% % reinterleavedBytes = zeros(size(correctedBlocks, 1), ReedSolomon.interleavingDepth * ReedSolomon.messageLength, 'uint8');
-% % for i = 1:size(correctedBlocks, 1)
-% %     correctedBlock = squeeze(correctedBlocks(i, :, :));
-% %     reinterleavedBytes(i, :) = reshape(correctedBlock.', 1, []);
-% % end
-% % bitsPerByte = 8;
-% % reinterleavedBits = de2bi(reinterleavedBytes, bitsPerByte, 'left-msb');
-% % reinterleavedBits = reshape(reinterleavedBits.', size(correctedBlocks, 1), []);
-% % vcdus = logical(reinterleavedBits);
-% 
-% %% partial packet extraction
-% pp = extraction(cvcdus);
-% 
-% % sort apids
-% apids = cellfun(@(x) x(2), pp);
-% uniqueApids = unique(apids);
-% ppSorted = cell(1, numel(uniqueApids));
-% for i = 1:numel(uniqueApids)
-%     apid = uniqueApids(i);
-%     rows = (apids == apid);
-%     ppSorted{i} = pp(rows);
-% end
-% 
-% %% mcus
-% mcusSorted = cell(1, numel(ppSorted));
-% for i = 1:numel(ppSorted)
-%     for j = 1:numel(ppSorted{i})
-%         mcusSortedDec = ppSorted{i}{j}(1,21:end);
-%         mcusSorted{i}{j} = int2bit(mcusSortedDec.', 8).';
+%% reed-solomon correction
+% % de-interleaving
+% deinterleavedBlocks = zeros(size(cvcdus, 1), ReedSolomon.interleavingDepth, ReedSolomon.codeWordLength, 'uint8');
+% for i = 1:size(cvcdus, 1)
+%     cvcdu = cvcdus(i, :);
+%     for j = 1:ReedSolomon.interleavingDepth
+%         deinterleavedBlocks(i, j, :) = cvcdu(j:ReedSolomon.interleavingDepth:end);
 %     end
 % end
+% 
+% % reed-solomon decoder
+% generatorPolynomial = rsgenpoly( ...
+%                         ReedSolomon.codeWordLength, ...
+%                         ReedSolomon.messageLength, ...
+%                         bi2de(ReedSolomon.primitivePolynomial, ...
+%                         'left-msb'));
+% rsDec = comm.RSDecoder( ...
+%             'CodewordLength', ReedSolomon.codeWordLength, ...
+%             'MessageLength', ReedSolomon.messageLength, ...   
+%             'GeneratorPolynomialSource', 'Property', ...
+%             'GeneratorPolynomial', generatorPolynomial, ...
+%             'PrimitivePolynomialSource', 'Property', ...
+%             'PrimitivePolynomial', ReedSolomon.primitivePolynomial ...
+%         );
+% correctedBlocks = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth, ReedSolomon.messageLength, 'uint8');
+% numErrors       = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth);
+% for i = 1:size(deinterleavedBlocks, 1)
+%     for j = 1:ReedSolomon.interleavingDepth
+%         [decoded, errCount] = rsDec(squeeze(deinterleavedBlocks(i, j, :)));
+%         correctedBlocks(i, j, :) = decoded;
+%         numErrors(i, j) = errCount;
+%         fprintf('Frame %d, Block %d: %d Bytefehler korrigiert\n', i, j, errCount);
+%     end
+% end
+% 
+% % re-interleaving
+% reinterleavedBytes = zeros(size(correctedBlocks, 1), ReedSolomon.interleavingDepth * ReedSolomon.messageLength, 'uint8');
+% for i = 1:size(correctedBlocks, 1)
+%     correctedBlock = squeeze(correctedBlocks(i, :, :));
+%     reinterleavedBytes(i, :) = reshape(correctedBlock.', 1, []);
+% end
+% bitsPerByte = 8;
+% reinterleavedBits = de2bi(reinterleavedBytes, bitsPerByte, 'left-msb');
+% reinterleavedBits = reshape(reinterleavedBits.', size(correctedBlocks, 1), []);
+% vcdus = logical(reinterleavedBits);
+
+%% mcu extraction
+[mcus, qualityFactors, apids] = extraction(cvcdus);
 
 %% jpeg decoding
+Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params.plotting);

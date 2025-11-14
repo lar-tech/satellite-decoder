@@ -1,4 +1,4 @@
-function pp = extraction(cvcdus)
+function [mcus, qualityFactors, apids] = extraction(cvcdus)
     % extract header infos
     vcdus = cvcdus(:,1:end-128);
     mpdus = vcdus(:,9:end);
@@ -59,5 +59,15 @@ function pp = extraction(cvcdus)
             end
         end
         i = i+1;
+    end
+    % extract mcus
+    mcus = cell(1, numel(pp));
+    qualityFactors = cell(1, numel(pp));
+    apids = zeros(1, numel(pp));
+    for i = 1:numel(pp)
+        apids(i) = pp{i}(2);
+        qualityFactors{i} = pp{i}(1,20);
+        mcusDec = pp{i}(1,21:end);
+        mcus{i} = int2bit(mcusDec.', 8).';
     end
 end
