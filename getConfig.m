@@ -6,7 +6,8 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
     Data.maxDataIdx = 500000;           
 
     % general
-    Params.plotting = true;            
+    Params.plotting = true;   
+    Params.thumbnailsWorkspace = true;
     Params.minClip = -0.01;             
     Params.maxClip = 0.01;              
     Params.M = 4;                       
@@ -22,7 +23,6 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
                             [0 2 3 1], ...      % (I, Q) -> (Q, I)
                             [3 1 0 2], ...      % (I, Q) -> (-Q, -I)
                             };
-    Params.thumbnailsWorkspace = true;
 
     % rcc
     Rcc.rollOff = 0.35;                 
