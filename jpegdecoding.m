@@ -106,7 +106,7 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
             thumbnails{i} = magnitudes;
         end
     else
-        load('workspaces/thumbnails.mat');
+        load('data/thumbnails.mat');
     end
     
     for i = 1:numel(thumbnails)
