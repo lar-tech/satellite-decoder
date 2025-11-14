@@ -1,7 +1,6 @@
 .DS_Store
 .python-version
 .vscode/
-plots/
 *.asv
 /backup.m
 

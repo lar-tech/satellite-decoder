@@ -1,4 +1,4 @@
-function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params)
+function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, plotting)
     % calculate magnitude
     function magnitude = decodeMagnitude(codeWord, bitArray)
         if codeWord == 0
@@ -178,7 +178,7 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
     Images.jpeg65 = uint8(jpeg65);
     Images.jpeg68 = uint8(jpeg68);
 
-    if Params.plotting
+    if plotting
         figure;
         imshow(Images.jpeg64);
         title("Channel 64")
