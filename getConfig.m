@@ -1,7 +1,7 @@
 function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getConfig()
     
     % file
-    Data.filePath = "data/input.wav";   % raw IQ-samples
+    Data.filePath = "data/meteor_m2_72k.wav";   % raw IQ-samples
     Data.minDataIdx = 1;                
     Data.maxDataIdx = 500000;           
 

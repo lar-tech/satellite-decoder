@@ -5,7 +5,7 @@ tic
 [~,Params,~,~,~,~,Huffman,DCT] = getConfig();
 
 %% cadu extraction
-filename = 'data/meteor_m2_lrpt.cadu';
+filename = 'data/meteor_m2.cadu';
 fid = fopen(filename,'rb');
 data = fread(fid,inf,'uint8');
 fclose(fid);
