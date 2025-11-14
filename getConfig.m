@@ -22,6 +22,7 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
                             [0 2 3 1], ...      % (I, Q) -> (Q, I)
                             [3 1 0 2], ...      % (I, Q) -> (-Q, -I)
                             };
+    Params.thumbnailsWorkspace = true;
 
     % rcc
     Rcc.rollOff = 0.35;                 

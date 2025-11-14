@@ -1,4 +1,4 @@
-function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, plotting)
+function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params)
     % calculate magnitude
     function magnitude = decodeMagnitude(codeWord, bitArray)
         if codeWord == 0
@@ -28,81 +28,85 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, plotti
     end
 
     % huffman, run-size decoding
-    for i = 1:numel(mcus)
-        mcu = mcus{i};
-        pos = 1;
-        if apids(i) == 70
-            continue
-        end
-        
-        j = 1;
-        goToNextMcu = 0;
-        magnitudes = cell(1, 14);
-        while pos < numel(mcu)
-            % DC Part
-            for k = 1:9
-                % check if we have found all 14 thumbnails
-                if mcu(pos+k-1:end) == ones(1, numel(mcu(pos+k-1:end))) | j > 14
-                    goToNextMcu = 1;
-                    break
-                end
-                key = sprintf('%d', mcu(pos:pos+k-1));
-                if isKey(DCMap.symbols,key)
-                    nextSymbolLength = double(DCMap.symbols(key));
-                    if nextSymbolLength ~= 0 % EOB
-                        bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
-                        dcMagnitude = decodeMagnitude(nextSymbolLength, bitArray);
-                        break;
-                    else
-                        dcMagnitude = 0;
+    if ~Params.thumbnailsWorkspace
+        for i = 1:numel(mcus)
+            mcu = mcus{i};
+            pos = 1;
+            if apids(i) == 70
+                continue
+            end
+            
+            j = 1;
+            goToNextMcu = 0;
+            magnitudes = cell(1, 14);
+            while pos < numel(mcu)
+                % DC Part
+                for k = 1:9
+                    % check if we have found all 14 thumbnails
+                    if mcu(pos+k-1:end) == ones(1, numel(mcu(pos+k-1:end))) | j > 14
+                        goToNextMcu = 1;
+                        break
+                    end
+                    key = sprintf('%d', mcu(pos:pos+k-1));
+                    if isKey(DCMap.symbols,key)
+                        nextSymbolLength = double(DCMap.symbols(key));
+                        if nextSymbolLength ~= 0 % EOB
+                            bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
+                            dcMagnitude = decodeMagnitude(nextSymbolLength, bitArray);
+                            break;
+                        else
+                            dcMagnitude = 0;
+                        end
                     end
                 end
-            end
-            if goToNextMcu
-                break
-            end
-            pos = pos + k + nextSymbolLength;
-    
+                if goToNextMcu
+                    break
+                end
+                pos = pos + k + nextSymbolLength;
         
-            % AC Part
-            acMagnitudes = zeros(1,63);
-            acCount = 1;
-            while pos <= numel(mcu)
-                found = false;
-                for k = 1:min(16, numel(mcu)-pos+1)
-                    key = sprintf('%d', mcu(pos:pos+k-1));
-                    if isKey(ACMap.symbols,key)
-                        if strcmp(ACMap.symbols(key), '0/0') % EOB
-                            break; 
-                        elseif strcmp(ACMap.symbols(key), '15/0') % ZRL 
-                            acCount = acCount + 16;
-                            pos = pos + 11;
+            
+                % AC Part
+                acMagnitudes = zeros(1,63);
+                acCount = 1;
+                while pos <= numel(mcu)
+                    found = false;
+                    for k = 1:min(16, numel(mcu)-pos+1)
+                        key = sprintf('%d', mcu(pos:pos+k-1));
+                        if isKey(ACMap.symbols,key)
+                            if strcmp(ACMap.symbols(key), '0/0') % EOB
+                                break; 
+                            elseif strcmp(ACMap.symbols(key), '15/0') % ZRL 
+                                acCount = acCount + 16;
+                                pos = pos + 11;
+                                found = true;
+                                break;
+                            end
+        
+                            runsize = str2double(split(ACMap.symbols(key), '/'));
+                            if pos+k+runsize(2)-1 > numel(mcu)
+                                break;  % end
+                            end
+                            acCount = acCount + runsize(1);
+                            nextSymbolLength = runsize(2);
+                            bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
+                            acMagnitudes(acCount) = decodeMagnitude(nextSymbolLength, bitArray);
+                            acCount = acCount + 1;
+                            pos = pos + k + nextSymbolLength;
                             found = true;
                             break;
                         end
-    
-                        runsize = str2double(split(ACMap.symbols(key), '/'));
-                        if pos+k+runsize(2)-1 > numel(mcu)
-                            break;  % end
-                        end
-                        acCount = acCount + runsize(1);
-                        nextSymbolLength = runsize(2);
-                        bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
-                        acMagnitudes(acCount) = decodeMagnitude(nextSymbolLength, bitArray);
-                        acCount = acCount + 1;
-                        pos = pos + k + nextSymbolLength;
-                        found = true;
-                        break;
                     end
+                    if ~found, break; end
+                    if ACMap.symbols(key) == 240, continue; end
                 end
-                if ~found, break; end
-                if ACMap.symbols(key) == 240, continue; end
+                magnitudes{j} = [dcMagnitude, acMagnitudes];
+                j = j + 1;
+                pos = pos + length(key);
             end
-            magnitudes{j} = [dcMagnitude, acMagnitudes];
-            j = j + 1;
-            pos = pos + length(key);
+            thumbnails{i} = magnitudes;
         end
-        thumbnails{i} = magnitudes;
+    else
+        load('workspaces/thumbnails.mat');
     end
     
     for i = 1:numel(thumbnails)
@@ -178,7 +182,9 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, plotti
     Images.jpeg65 = uint8(jpeg65);
     Images.jpeg68 = uint8(jpeg68);
 
-    if plotting
+    % Images.rgb = cat(3, Images.jpeg68, Images.jpeg65, Images.jpeg64);
+
+    if Params.plotting
         figure;
         imshow(Images.jpeg64);
         title("Channel 64")
@@ -188,5 +194,8 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, plotti
         figure;
         imshow(Images.jpeg68);
         title("Channel 68")
+        % figure;
+        % imshow(Images.rgb);
+        % title("RGB aus 64/65/68")
     end
 end
