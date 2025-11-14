@@ -1,7 +1,6 @@
 close all; clear; clc;
 
 %% get config
-
 [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getConfig; 
 
 %% demodulate qpsk
