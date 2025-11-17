@@ -1,6 +1,7 @@
-function symbols = demod(Data, Params, Rcc)
+function symbols = demod(currentIdx, Data, Params, Rcc)
     % load data
-    [rawData, fs] = audioread(Data.filePath);
+    rawData = Data.raw;
+    fs = Data.fs;
     I = single(rawData(:,1));
     Q = single(rawData(:,2));
     I = clip(I,Params.minClip,Params.maxClip);
@@ -8,10 +9,10 @@ function symbols = demod(Data, Params, Rcc)
     I = I / max(abs(I));
     Q = Q / max(abs(Q));
     x = (I + 1j*Q);
-    x = x(Data.minDataIdx:Data.maxDataIdx);
+    x = x(currentIdx:currentIdx+Data.blockSize);
 
     % resampling
-     targetFs = Params.targetSps * Params.symbolRate; 
+    targetFs = Params.targetSps * Params.symbolRate; 
     [p, q] = rat(targetFs/fs);         
     xResampled = resample(x, p, q);           
     % fsResampled = fs * p / q;                
@@ -50,14 +51,14 @@ function symbols = demod(Data, Params, Rcc)
                     );
     symbols = carrierSync(ySync);
 
-    if Params.plotting
-        figure;
-        plot(real(symbols), imag(symbols), marker='.', LineStyle='none')
-        axis equal;
-        axis([-2.5 2.5 -2.5 2.5]);
-        grid on;
-        xlabel('I-Component');
-        ylabel('Q-Component');
-        title('Demodulated QPSK-Symbols');
-    end
+    % if Params.plotting
+    %     figure(1);
+    %     plot(real(symbols), imag(symbols), marker='.', LineStyle='none')
+    %     axis equal;
+    %     axis([-2.5 2.5 -2.5 2.5]);
+    %     grid on;
+    %     xlabel('I-Component');
+    %     ylabel('Q-Component');
+    %     title('Demodulated QPSK-Symbols');
+    % end
 end

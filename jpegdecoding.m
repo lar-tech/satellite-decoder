@@ -108,7 +108,8 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
     else
         load('data/thumbnails.mat');
     end
-    
+
+    spatials = cell(1, numel(thumbnails));
     for i = 1:numel(thumbnails)
         magnitudes = thumbnails{i};
         for j = 1:numel(magnitudes)
@@ -124,7 +125,10 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
     
         for j = 1:numel(magnitudes)
             magnitude = magnitudes{j};
-            if isempty(magnitude); break; end
+            if isempty(magnitude)
+                spatials{i}{j} = zeros(8,8);
+                continue
+            end
             zigzag = zeros(8,8);
         
             for k = 0:63
@@ -135,8 +139,7 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
             spatials{i}{j} = idct2(zigzagQuant) + 128;
         end
     end
-    
-    
+
     channel64 = [];
     channel65 = [];
     channel68 = [];
@@ -182,8 +185,8 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
     Images.jpeg65 = uint8(jpeg65);
     Images.jpeg68 = uint8(jpeg68);
 
-    % Images.rgb = cat(3, Images.jpeg68, Images.jpeg65, Images.jpeg64);
-
+    Images.rgb = cat(3, Images.jpeg68, Images.jpeg65, Images.jpeg64);
+    
     if Params.plotting
         figure;
         imshow(Images.jpeg64);
@@ -194,8 +197,8 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
         figure;
         imshow(Images.jpeg68);
         title("Channel 68")
-        % figure;
-        % imshow(Images.rgb);
-        % title("RGB aus 64/65/68")
+        figure;
+        imshow(Images.rgb);
+        title("RGB aus 68/65/64")
     end
 end

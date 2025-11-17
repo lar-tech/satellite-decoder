@@ -1,13 +1,14 @@
-function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getConfig()
+function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig()
     
     % file
-    Data.filePath = "data/meteor_m2_72k.wav";   % raw IQ-samples
-    Data.minDataIdx = 1;                
-    Data.maxDataIdx = 500000;           
+    filePath = "data/meteor_m2_72k.wav";   % raw IQ-samples
+    [Data.raw, Data.fs] = audioread(filePath);
+    Data.fileSize = numel(Data.raw);
+    Data.blockSize = 500000;
 
     % general
     Params.plotting = true;   
-    Params.thumbnailsWorkspace = true;
+    Params.thumbnailsWorkspace = false;
     Params.minClip = -0.01;             
     Params.maxClip = 0.01;              
     Params.M = 4;                       
