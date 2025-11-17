@@ -4,7 +4,7 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
     filePath = "data/meteor_m2_72k.wav";   % raw IQ-samples
     [Data.raw, Data.fs] = audioread(filePath);
     Data.fileSize = numel(Data.raw);
-    Data.blockSize = 500000;
+    Data.blockSize = 98304;
 
     % general
     Params.plotting = true;   

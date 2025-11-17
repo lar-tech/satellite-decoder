@@ -14,7 +14,7 @@ for i = 1:Data.blockSize:Data.fileSize-Data.blockSize
 
     % decoding and descrambling
     cvcdus = decode(softBits, Viterbi, Descrambler, Params);
-    pause(0.5);
+    % pause(0.1);
 end
 
 

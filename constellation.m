@@ -24,20 +24,20 @@ function softBits = constellation(symbols, Params)
         [pks,locs] = findpeaks(corr, 'MinPeakDistance',16384-1, 'Threshold', 1);
         width = median(diff(locs))/16;
         
-        % % plotting
-        % if width==1024
-        %     if Params.plotting
-        %         % figure;
-        %         plot(lags, corr); hold on;
-        %         plot(lags(locs), pks, 'rx');
-        %         hold off;
-        %         xlim([0 length(corr)/2]);
-        %         xlabel('Samples');
-        %         ylabel('Cross-correlation amplitude');
-        %         title(sprintf('Cross-correlation of FCA2B63DB00D9794 and encoded Softbits using %s', mat2str(Params.constellations{i})));
-        %         grid on;
-        %     end
-        %     break
-        % end
+        % plotting
+        if width==1024
+            % if Params.plotting
+                % figure;
+                % plot(lags, corr); hold on;
+                % plot(lags(locs), pks, 'rx');
+                % hold off;
+                % xlim([0 length(corr)/2]);
+                % xlabel('Samples');
+                % ylabel('Cross-correlation amplitude');
+                % title(sprintf('Cross-correlation of FCA2B63DB00D9794 and encoded Softbits using %s', mat2str(Params.constellations{i})));
+                % grid on;
+            % end
+            break
+        end
     end
 end

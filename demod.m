@@ -52,7 +52,7 @@ function symbols = demod(currentIdx, Data, Params, Rcc)
     symbols = carrierSync(ySync);
 
     % if Params.plotting
-    %     figure(1);
+    %     % figure(1);
     %     plot(real(symbols), imag(symbols), marker='.', LineStyle='none')
     %     axis equal;
     %     axis([-2.5 2.5 -2.5 2.5]);
