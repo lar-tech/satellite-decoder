@@ -1,6 +1,10 @@
 function symbols = demod(currentIdx, Data, Params, Rcc)
     % load data
-    rawData = Data.raw;
+    if currentIdx+Data.blockSize <= Data.fileSize
+        rawData = Data.raw(currentIdx:currentIdx+Data.blockSize,:);
+    else
+        rawData = Data.raw(currentIdx:end,:);
+    end
     fs = Data.fs;
     I = single(rawData(:,1));
     Q = single(rawData(:,2));
@@ -9,7 +13,6 @@ function symbols = demod(currentIdx, Data, Params, Rcc)
     I = I / max(abs(I));
     Q = Q / max(abs(Q));
     x = (I + 1j*Q);
-    x = x(currentIdx:currentIdx+Data.blockSize);
 
     % resampling
     targetFs = Params.targetSps * Params.symbolRate; 
@@ -50,7 +53,8 @@ function symbols = demod(currentIdx, Data, Params, Rcc)
                     'SamplesPerSymbol',1 ...
                     );
     symbols = carrierSync(ySync);
-
+    
+    % % plotting
     % if Params.plotting
     %     % figure(1);
     %     plot(real(symbols), imag(symbols), marker='.', LineStyle='none')

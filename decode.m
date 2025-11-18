@@ -19,26 +19,28 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
     syncAsmBits = 2*double(syncAsmBits)-1;
     
     [corr, lags] = xcorr(decodedBits, syncAsmBits);
-    [pks,locs] = findpeaks(abs(corr), 'MinPeakDistance',8192-1, 'Threshold',10);
+    [pks, locs] = findpeaks(abs(corr), 'MinPeakDistance',8192-1, 'MinPeakHeight', 30);
     
-    % invert Bits if correlation is negative
+    
+
+    % invert Bits
     if corr(locs) < 0
         corr = -corr;
         decodedBits = -decodedBits;
         decodedBits = double(decodedBits+1)/2;
     end
     
-    if Params.plotting
-        % figure()
-        % plot(lags, corr); hold on;
-        % plot(lags(locs), pks, 'rx');
-        % hold off;
-        % xlim([0 length(corr)/2]);
-        % xlabel('Samples');
-        % ylabel('Cross-correlation');
-        % title('Cross-correlation of 1ACFFC1D and decoded Softbits');
-        % grid on;
-    end
+    % if Params.plotting
+    %     figure()
+    %     plot(lags, corr); hold on;
+    %     plot(lags(locs), pks, 'rx');
+    %     hold off;
+    %     xlim([0 length(corr)/2]);
+    %     xlabel('Samples');
+    %     ylabel('Cross-correlation');
+    %     title('Cross-correlation of 1ACFFC1D and decoded Softbits');
+    %     grid on;
+    % end
     
     % remove sync word for descrambling
     payloads = cell(1, numel(locs));
