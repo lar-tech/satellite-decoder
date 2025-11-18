@@ -2,3 +2,4 @@
 .python-version
 *.asv
 /data/meteor_m24_72k.bin
+softbits.mat
