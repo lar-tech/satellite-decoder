@@ -3,6 +3,7 @@ function symbols = demod(currentIdx, Data, Params, Rcc)
     if currentIdx+Data.blockSize <= Data.fileSize
         rawData = Data.raw(currentIdx:currentIdx+Data.blockSize,:);
     else
+        % if last block exceeds filesize 
         rawData = Data.raw(currentIdx:end,:);
     end
     fs = Data.fs;
@@ -18,7 +19,6 @@ function symbols = demod(currentIdx, Data, Params, Rcc)
     targetFs = Params.targetSps * Params.symbolRate; 
     [p, q] = rat(targetFs/fs);         
     xResampled = resample(x, p, q);           
-    % fsResampled = fs * p / q;                
     
     % rrc-matched-filter
     rrcRx = comm.RaisedCosineReceiveFilter( ...

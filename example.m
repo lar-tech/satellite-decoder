@@ -73,10 +73,10 @@ cvcdus = cadus(:,5:end);
 % vcdus = logical(reinterleavedBits);
 
 %% mcu extraction
-[mcus, qualityFactors, apids] = extraction(cvcdus);
+% [mcus, qualityFactors, apids] = extraction(cvcdus);
 
 %% jpeg decoding
-Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params);
+% Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params);
 
 % % cat rgb 
 % h = min([size(Images.jpeg64,1), size(Images.jpeg65,1), size(Images.jpeg68,1)]);

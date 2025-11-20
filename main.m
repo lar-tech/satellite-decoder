@@ -6,31 +6,24 @@ tic
 
 % numberBlocks = round(Data.fileSize / Data.blockSize);
 % Data.blockSize = int64(Data.fileSize / numberBlocks);
-% symbols = [];
 % 
-% % for i = 1:Data.blockSize:Data.fileSize
-% i = 1;
-% softBits = [];
-% lastFrames = 0;
-% while i < Data.fileSize
-%     if (Data.fileSize - i) < 4*16384
-%         lastFrames = 1;
-%     end
+% softBitsAll = [];
+% for i = 1:Data.blockSize+1:Data.fileSize
 %     % demodulate qpsk
 %     symbols = demod(i, Data, Params, Rcc);
 % 
 %     % find constellation
-%     softBitsFramed = constellation(lastFrames, symbols, Params);
-%     softBits = [softBits; softBitsFramed];
-% 
-%     if lastFrames; break; end
-%     i = i + numel(softBitsFramed);
+%     softBits = constellation(i, symbols, Params);
+%     softBitsAll = [softBitsAll; softBits];
+%     % pause(0.1)
 % end
-
-load("data/softbits.mat");
+% 19759104
+% load("data/softbits.mat");
 
 % decoding and descrambling
-cvcdus = decode(softBits, Viterbi, Descrambler, Params);
+% cvcdus = decode(softBitsAll, Viterbi, Descrambler, Params);
+
+load("data/cvcdus.mat")
 
 % mcu extraction
 [mcus, qualityFactors, apids] = extraction(cvcdus);
