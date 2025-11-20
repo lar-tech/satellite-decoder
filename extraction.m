@@ -8,7 +8,6 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus)
     mpduPointer = mpdusHeaderBits(:,6:end);
     mpduPointerDec = bi2de(mpduPointer, 'left-msb');
     
-    
     pp = {};
     row = 1;
     i = 1;

@@ -72,8 +72,8 @@ cvcdus = cadus(:,5:end);
 % reinterleavedBits = reshape(reinterleavedBits.', size(correctedBlocks, 1), []);
 % vcdus = logical(reinterleavedBits);
 
-%% mcu extraction
-% [mcus, qualityFactors, apids] = extraction(cvcdus);
+% mcu extraction
+[mcus, qualityFactors, apids] = extraction(cvcdus);
 
 %% jpeg decoding
 % Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params);
