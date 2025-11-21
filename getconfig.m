@@ -4,7 +4,7 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
     filePath = "data/meteor_m2_72k.wav";   % raw IQ-samples
     [Data.raw, Data.fs] = audioread(filePath);
     Data.fileSize = size(Data.raw, 1);
-    Data.blockSize = 98304;
+    Data.blockSize = 100000;
 
     % general
     Params.plotting = false;   
@@ -15,14 +15,10 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
     Params.symbolRate = 72e3;           
     Params.targetSps = 4;               
     Params.constellations = {
-                            [0 1 3 2], ...      % default
-                            [1 3 2 0], ...      % 90°
-                            [3 2 0 1], ...      % 180°
-                            [2 0 1 3], ...      % 270°
-                            [2 3 1 0], ...      % Imag-inverted
-                            [1 0 2 3], ...      % Re-inverted
-                            [0 2 3 1], ...      % (I, Q) -> (Q, I)
-                            [3 1 0 2], ...      % (I, Q) -> (-Q, -I)
+                            [0 1 3 2], ...      % default a
+                            [1 3 2 0], ...      % 90° b
+                            [2 3 1 0], ...      % Imag-inverted c
+                            [0 2 3 1], ...      % (I, Q) -> (Q, I) d
                             };
 
     % rcc
