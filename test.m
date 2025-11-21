@@ -1,65 +1,34 @@
-clc; clear;
+clc; clear; close all;
 
-load("data/cvcdus.mat")
+load("data/softBits.mat")
+%% softbits
+% sync word
+syncAsm = 'FCA2B63DB00D9794';
+syncAsmBytes = sscanf(syncAsm, '%2x').';
+syncAsmBits = de2bi(syncAsmBytes, 8, 'left-msb');
+syncAsmBits = reshape(syncAsmBits.', 1, []);
+syncAsmBits = 2*double(syncAsmBits)-1;
 
-% reed-solomon
-ReedSolomon.interleavingDepth = 4;
-ReedSolomon.codeWordLength = 255;                       
-ReedSolomon.messageLength = 223;                        
-ReedSolomon.primitivePolynomial = [1 1 0 0 0 0 1 1 1];  % x^8+x^7+x^2+x+1
-ReedSolomon.E = 16;
+[corr, lags] = xcorr(softBits, syncAsmBits);
+corrNormalized = abs(corr)./max(abs(corr));
+signalLevel = quantile(abs(corrNormalized), 0.999);
+[pks, locs] = findpeaks(corrNormalized, 'MinPeakDistance',16384-1, 'Threshold', 0.1, 'MinPeakHeight', signalLevel+0.15); % , 'MinPeakHeight', 40+signalLevel
+widths = median(diff(locs))/16;
 
-N = ReedSolomon.codeWordLength;
-K = ReedSolomon.messageLength;
-prim_poly = bi2de(ReedSolomon.primitivePolynomial, 'left-msb');
-genpoly = rsgenpoly(N,K,prim_poly);
+figure()
+plot(lags, corrNormalized); hold on;
+plot(lags(locs), pks, 'rx');
+hold off;
+xlim([1e6 2e6]);
+xlabel('Samples');
+ylabel('Cross-correlation');
+title('Cross-correlation of 1ACFFC1D and decoded Softbits');
+grid on;
 
-%% reed-solomon
-% de-interleaving
-deinterleavedBlocks = zeros(size(cvcdus, 1), ReedSolomon.interleavingDepth, ReedSolomon.codeWordLength, 'uint8');
-for i = 1:size(cvcdus, 1)
-    cvcdu = cvcdus(i, :);
-    for j = 1:ReedSolomon.interleavingDepth
-        deinterleavedBlocks(i, j, :) = cvcdu(j:ReedSolomon.interleavingDepth:end);
-    end
-end
-
-% reed-solomon decoder
-rsDec = comm.RSDecoder( ...
-            'CodewordLength', ReedSolomon.codeWordLength, ...
-            'MessageLength', ReedSolomon.messageLength, ...
-            'GeneratorPolynomialSource', 'Property', ...
-            'GeneratorPolynomial', genpoly, ...
-            'PrimitivePolynomialSource', 'Property', ...
-            'PrimitivePolynomial', ReedSolomon.primitivePolynomial ...
-        );
-correctedBlocks = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth, ReedSolomon.messageLength, 'uint8');
-numErrors       = zeros(size(deinterleavedBlocks, 1), ReedSolomon.interleavingDepth);
-for i = 1:size(deinterleavedBlocks, 1)
-    for j = 1:ReedSolomon.interleavingDepth
-        [decoded, errCount] = rsDec(squeeze(deinterleavedBlocks(i, j, :)));
-        correctedBlocks(i, j, :) = decoded;
-        numErrors(i, j) = errCount;
-        fprintf('Frame %d, Block %d: %d Bytefehler korrigiert\n', i, j, errCount);
-    end
-end
-
-% re-interleaving
-reinterleavedBytes = zeros(size(correctedBlocks, 1), ReedSolomon.interleavingDepth * ReedSolomon.messageLength, 'uint8');
-for i = 1:size(correctedBlocks, 1)
-    correctedBlock = squeeze(correctedBlocks(i, :, :));
-    reinterleavedBytes(i, :) = reshape(correctedBlock.', 1, []);
-end
-bitsPerByte = 8;
-reinterleavedBits = de2bi(reinterleavedBytes, bitsPerByte, 'left-msb');
-reinterleavedBits = reshape(reinterleavedBits.', size(correctedBlocks, 1), []);
-vcdus = logical(reinterleavedBits);
-
-% 
 % %% extraction
 % % extract header infos
 % vcdus = cvcdus(:,1:end-128);
-% mpdus = vcdus(:,9:end);
+% mpdus = vcdus(:,9:end); % drop kack rows, namly ab zeile 36
 % mpdusPayload = mpdus(:,3:end);
 % mpdusHeader = mpdus(:,1:2);
 % mpdusHeaderBits = int2bit(mpdusHeader.', 8).';

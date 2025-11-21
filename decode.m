@@ -1,4 +1,4 @@
-function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
+function [cvcdus, payloads, decodedBits] = decode(softBits, Viterbi, Descrambler, Params)
     
     % viterbi-decoder
     trellis = poly2trellis(Viterbi.constLen, Viterbi.codeGenPoly);
@@ -10,6 +10,9 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
     softBitsScaled = softBits * 10;
     decodedBits = vDec(softBitsScaled);
     decodedBits = 2*double(decodedBits)-1;
+
+    % invert Bits don't know why
+    decodedBits = -decodedBits;
     
     % sync word
     syncAsm = '1ACFFC1D';
@@ -21,26 +24,26 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
     [corr, lags] = xcorr(decodedBits, syncAsmBits);
     [pks, locs] = findpeaks(abs(corr), 'MinPeakDistance',8192-1, 'MinPeakHeight', 30);
     
-    
-
-    % invert Bits
-    if corr(locs) < 0
-        corr = -corr;
-        decodedBits = -decodedBits;
-        decodedBits = double(decodedBits+1)/2;
-    end
-    
-    % if Params.plotting
-    %     figure()
-    %     plot(lags, corr); hold on;
-    %     plot(lags(locs), pks, 'rx');
-    %     hold off;
-    %     xlim([0 length(corr)/2]);
-    %     xlabel('Samples');
-    %     ylabel('Cross-correlation');
-    %     title('Cross-correlation of 1ACFFC1D and decoded Softbits');
-    %     grid on;
+    % % invert Bits
+    % if corr(locs) < 0
+    %     corr = -corr;
+    %     decodedBits = -decodedBits;
+    %     decodedBits = double(decodedBits+1)/2;
     % end
+    decodedBits = double(decodedBits+1)/2;
+
+    
+    if Params.plotting
+        figure()
+        plot(lags, corr); hold on;
+        plot(lags(locs), pks, 'rx');
+        hold off;
+        xlim([0 length(corr)/2]);
+        xlabel('Samples');
+        ylabel('Cross-correlation');
+        title('Cross-correlation of 1ACFFC1D and decoded Softbits');
+        grid on;
+    end
     
     % remove sync word for descrambling
     payloads = cell(1, numel(locs));
