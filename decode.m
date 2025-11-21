@@ -22,17 +22,10 @@ function [cvcdus, payloads, decodedBits] = decode(softBits, Viterbi, Descrambler
     syncAsmBits = 2*double(syncAsmBits)-1;
     
     [corr, lags] = xcorr(decodedBits, syncAsmBits);
-    [pks, locs] = findpeaks(abs(corr), 'MinPeakDistance',8192-1, 'MinPeakHeight', 30);
+    [pks, locs] = findpeaks(abs(corr), 'MinPeakDistance',8192-3, 'MinPeakHeight', 30);
     
-    % % invert Bits
-    % if corr(locs) < 0
-    %     corr = -corr;
-    %     decodedBits = -decodedBits;
-    %     decodedBits = double(decodedBits+1)/2;
-    % end
     decodedBits = double(decodedBits+1)/2;
 
-    
     if Params.plotting
         figure()
         plot(lags, corr); hold on;

@@ -64,7 +64,6 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
                 end
                 pos = pos + k + nextSymbolLength;
         
-            
                 % AC Part
                 acMagnitudes = zeros(1,63);
                 acCount = 1;
