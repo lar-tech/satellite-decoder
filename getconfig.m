@@ -8,17 +8,17 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
 
     % general
     Params.plotting = false;   
-    Params.thumbnailsWorkspace = false;
+    Params.thumbnailsWorkspace = true;
     Params.minClip = -0.01;             
     Params.maxClip = 0.01;              
     Params.M = 4;                       
     Params.symbolRate = 72e3;           
     Params.targetSps = 4;               
     Params.constellations = {
-                            [0 1 3 2], ...      % default a
-                            [1 3 2 0], ...      % 90° b
-                            [2 3 1 0], ...      % Imag-inverted c
-                            [0 2 3 1], ...      % (I, Q) -> (Q, I) d
+                            [0 1 3 2], ...      % default 
+                            [1 3 2 0], ...      % 90° 
+                            [2 3 1 0], ...      % Imag-inverted 
+                            [0 2 3 1], ...      % (I, Q) -> (Q, I) 
                             };
 
     % rcc

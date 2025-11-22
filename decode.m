@@ -10,7 +10,7 @@ function [cvcdus, payloads, decodedBits] = decode(softBits, Viterbi, Descrambler
     softBitsScaled = softBits * 10;
     decodedBits = vDec(softBitsScaled);
     decodedBits = 2*double(decodedBits)-1;
-
+    
     % invert Bits don't know why
     decodedBits = -decodedBits;
     
@@ -22,10 +22,47 @@ function [cvcdus, payloads, decodedBits] = decode(softBits, Viterbi, Descrambler
     syncAsmBits = 2*double(syncAsmBits)-1;
     
     [corr, lags] = xcorr(decodedBits, syncAsmBits);
-    [pks, locs] = findpeaks(abs(corr), 'MinPeakDistance',8192-3, 'MinPeakHeight', 30);
+    [pks, locs] = findpeaks(abs(corr), 'MinPeakHeight', 29);
     
     decodedBits = double(decodedBits+1)/2;
+    
+    % remove sync word for descrambling
+    payloads = repmat({zeros(8160, 1)}, 1, numel(locs)-1);
+    for i = 1:numel(locs)-1
+        startIdx = lags(locs(i))+length(syncAsmBits)+1;
+        expectedStopIdx = startIdx+8160-1;
+        
+        % case: frames has 8192 or more Bytes 
+        if lags(locs(i+1)) >= expectedStopIdx
+            stopIdx = expectedStopIdx;
 
+        % case: frames has less than 8192 Byte (bitstuffing with zeros)
+        elseif lags(locs(i+1)) < expectedStopIdx
+            stopIdx = lags(locs(i+1))-1;
+
+        % last frame
+        elseif expectedStopIdx > numel(decodedBits)
+            break
+        end
+        
+        payloads{i}(1:stopIdx-startIdx+1) = decodedBits(startIdx:stopIdx);
+    end
+    
+    % descrambler
+    numFrames = numel(payloads);
+    frameLenBytes = 1024;
+    cvcdus = zeros(numFrames, frameLenBytes-4, 'uint8');
+    
+    for i = 1:numFrames
+        payload = payloads{i};
+        payload = reshape(payload, 8, []).';
+        payload = uint8(bi2de(payload, 'left-msb'));
+        idx = mod(0:numel(payload)-1, 255) + 1;
+        payloadDescrambled = diag(bitxor(payload, Descrambler.pn(idx)));
+        cvcdus(i,:) = payloadDescrambled;
+    end
+    
+    % plotting
     if Params.plotting
         figure()
         plot(lags, corr); hold on;
@@ -36,33 +73,5 @@ function [cvcdus, payloads, decodedBits] = decode(softBits, Viterbi, Descrambler
         ylabel('Cross-correlation');
         title('Cross-correlation of 1ACFFC1D and decoded Softbits');
         grid on;
-    end
-    
-    % remove sync word for descrambling
-    payloads = cell(1, numel(locs));
-    for i = 1:numel(locs)
-        start_idx = lags(locs(i))+length(syncAsmBits)+1;
-        stop_idx  = start_idx + 8160-1;
-        if start_idx > 0 && stop_idx <= numel(decodedBits)
-            payloads{i} = decodedBits(start_idx:stop_idx);
-        else
-            payloads{i} = [];
-        end
-    end
-    validFrames = ~cellfun(@isempty, payloads);
-    payloads = payloads(validFrames);
-
-    % descrambler
-    numFrames = numel(payloads);
-    frameLenBytes = 1024;
-    cvcdus = zeros(numFrames, frameLenBytes-4, 'uint8');
-
-    for i = 1:numFrames
-        payload = payloads{i};
-        payload = reshape(payload, 8, []).';
-        payload = uint8(bi2de(payload, 'left-msb'));
-        idx = mod(0:numel(payload)-1, 255) + 1;
-        payloadDescrambled = diag(bitxor(payload, Descrambler.pn(idx)));
-        cvcdus(i,:) = payloadDescrambled;
     end
 end

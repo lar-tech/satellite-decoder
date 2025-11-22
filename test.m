@@ -1,6 +1,8 @@
 clc; clear; close all;
 
-load("data/cvcdus.mat")
+% get config
+[Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig(); 
+load("data/cvcdus.mat");
 
 % extract header infos
 vcdus = cvcdus(36:end-2,1:end-128);
@@ -15,7 +17,28 @@ pp = {};
 row = 1;
 i = 1;
 idx = double(mod(mpduPointerDec(1), 2048) + 1);
+apids = [64, 65, 68, 70];
 while sum(cellfun(@numel, pp)) < numel(mpdusPayload)
+    % if idx+5 <= size(mpdusPayload, 2)
+    % 
+    % elseif idx+5 > size(mpdusPayload, 2) %~(mpdusPayload(row, idx) == 8 && ismember(mpdusPayload(row, idx+1), apids))
+    %     part1 = mpdusPayload(row, idx:end);
+    %     part2 = mpdusPayload(row+1, 1 : 5 - numel(part1));
+    %     tmpRow = row;
+    %     tmpIdx = idx;
+    %     checkHeader = [part1, part2];
+    %     if ~(checkHeader(1) == 8 && ismember(checkHeader(2), apids) && checkHeader(5) == 0)
+    %         % go to next idx
+    %         if idx < numel(mpdusPayload(row,:))
+    %             idx = idx + 1;
+    %         else
+    %             row = row + 1;
+    %             idx = 1;
+    %         end
+    %         continue
+    %     end
+    % end
+        
     % Check: header continues onto the next row
     if idx+4 > size(mpdusPayload, 2)
         % header spans across row and row + 1
@@ -40,13 +63,13 @@ while sum(cellfun(@numel, pp)) < numel(mpdusPayload)
             % standard case
             pp{i} = mpdusPayload(row, idx:idx+totalLen-1);
             idx = idx+totalLen;
-        
+
         elseif remaining == totalLen
             % no follow-up packet -> packet ends perfectly
             pp{i} = mpdusPayload(row, idx:end);
             idx = double(mod(mpduPointerDec(row+1), 2048) + 1);
             row = row + 1;
-        
+
         elseif row < size(mpdusPayload, 1)
             % overflow into next row
             part1 = mpdusPayload(row, idx:end);
