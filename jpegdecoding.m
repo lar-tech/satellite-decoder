@@ -103,6 +103,9 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
                 pos = pos + length(key);
             end
             thumbnails{i} = magnitudes;
+            if numel(thumbnails) == 200
+                break
+            end
         end
     else
         load('data/thumbnails.mat');
@@ -148,7 +151,8 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
     jpeg68 = [];
     jpeg70 = [];
     % sort spatials to there respective apid
-    for i = 1:numel(apids)
+    % for i = 1:numel(apids)
+    for i = 1:numel(thumbnails)
         apid = apids(i);
         for j = 1:numel(spatials{i})
             spatial = spatials{i}{j};
@@ -183,21 +187,21 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
     Images.jpeg64 = uint8(jpeg64);
     Images.jpeg65 = uint8(jpeg65);
     Images.jpeg68 = uint8(jpeg68);
-
-    Images.rgb = cat(3, Images.jpeg68, Images.jpeg65, Images.jpeg64);
-    
-    if Params.plotting
-        figure;
-        imshow(Images.jpeg64);
-        title("Channel 64")
-        figure;
-        imshow(Images.jpeg65);
-        title("Channel 65")
-        figure;
-        imshow(Images.jpeg68);
-        title("Channel 68")
-        figure;
-        imshow(Images.rgb);
-        title("RGB aus 68/65/64")
-    end
+    % 
+    % Images.rgb = cat(3, Images.jpeg68, Images.jpeg65, Images.jpeg64);
+    % 
+    % if Params.plotting
+    %     figure;
+    %     imshow(Images.jpeg64);
+    %     title("Channel 64")
+    %     figure;
+    %     imshow(Images.jpeg65);
+    %     title("Channel 65")
+    %     figure;
+    %     imshow(Images.jpeg68);
+    %     title("Channel 68")
+    %     figure;
+    %     imshow(Images.rgb);
+    %     title("RGB aus 68/65/64")
+    % end
 end
