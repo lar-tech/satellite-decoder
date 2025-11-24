@@ -31,7 +31,7 @@ function [cvcdus, payloads, decodedBits] = decode(softBits, Viterbi, Descrambler
     for i = 1:numel(locs)-1
         startIdx = lags(locs(i))+length(syncAsmBits)+1;
         expectedStopIdx = startIdx+8160-1;
-        
+
         % case: frames has 8192 or more Bytes 
         if lags(locs(i+1)) >= expectedStopIdx
             stopIdx = expectedStopIdx;
@@ -65,9 +65,8 @@ function [cvcdus, payloads, decodedBits] = decode(softBits, Viterbi, Descrambler
     % plotting
     if Params.plotting
         figure()
-        plot(lags, corr); hold on;
-        plot(lags(locs), pks, 'rx');
-        hold off;
+        plot(lags, abs(corr)); hold on;
+        plot(lags(locs), pks, 'rx'); hold off;
         xlim([0 length(corr)/2]);
         xlabel('Samples');
         ylabel('Cross-correlation');
