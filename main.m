@@ -4,28 +4,25 @@ tic
 % get config
 [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig(); 
 
-softBitsAll = [];
-counter = 1;
-for i = 1:Data.blockSize+1:Data.fileSize
-    % demodulate qpsk
-    symbols = demod(i, Data, Params, Rcc);
+% demodulation
+symbols = demod(Data, Params, Rcc);
 
-    % find constellation
-    softBits = constellation(symbols, Params);
-    softBitsAll = [softBitsAll; softBits];
+% constellation
+softBits = constellation(0, symbols, Params);
 
-    if counter == 1
-        break
-    end
-end
+% decoding and descrambling
+[cvcdus, payloads, decodedBits] = decode(softBits, Viterbi, Descrambler, Params);
 
-% % decoding and descrambling
-% [cvcdus, payloads, decodedBits] = decode(softBitsAll, Viterbi, Descrambler, Params);
-% 
-% % mcu extraction
-% [mcus, qualityFactors, apids] = extraction(cvcdus);
-% 
-% % % jpeg decoding
-% Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params);
+% mcu extraction
+[mcus, qualityFactors, apids] = extraction(cvcdus);
+
+% jpeg decoding
+Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params);
+figure;
+imshow(Images.jpeg64);
+figure;
+imshow(Images.jpeg65);
+figure;
+imshow(Images.jpeg68);
 
 toc
