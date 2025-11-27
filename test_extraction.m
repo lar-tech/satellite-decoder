@@ -1,8 +1,35 @@
 clc; clear; close all;
-
+tic
 % get config
-[Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig(); 
+[Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig();
 load("data/cvcdus.mat");
+
+
+function [row, idx, validHeader] = checkHeader(Header, apid, row, idx, nCols)
+    if ~(Header(1) == 8 && ismember(apid, [64 65 68 70]) && Header(7) == 0)
+        % go to next idx
+        if idx < nCols
+            idx = idx + 1;
+        else
+            row = row + 1;
+            idx = 1;
+        end
+        validHeader = 0;
+    else
+        validHeader = 1;
+    end
+end
+
+function counter = calcCounter(Header)
+    counterPP1 = Header(3).';
+    counterPP1 = int2bit(counterPP1.', 8).';
+    counterPP2 = Header(4).';
+    counterPP2 = int2bit(counterPP2.', 8).';
+    counterBit = [counterPP1 counterPP2];
+    counterBit = counterBit(:,3:end);
+    counter = int16(bi2de(counterBit, 'left-msb'));
+end
+
 
 % extract header infos
 vcdus = cvcdus(:,1:end-128);
@@ -13,115 +40,129 @@ mpdusHeaderBits = int2bit(mpdusHeader.', 8).';
 mpduPointer = mpdusHeaderBits(:,6:end);
 mpduPointerDec = bi2de(mpduPointer, 'left-msb');
 
-pp = {};
-row = 1;
-i = 1;
-idx = double(mod(mpduPointerDec(1), 2048) + 1);
-apids = [64, 65, 68, 70];
-while sum(cellfun(@numel, pp)) < numel(mpdusPayload)
-    % if idx+5 <= size(mpdusPayload, 2)
-    % 
-    % elseif idx+5 > size(mpdusPayload, 2) %~(mpdusPayload(row, idx) == 8 && ismember(mpdusPayload(row, idx+1), apids))
-    %     part1 = mpdusPayload(row, idx:end);
-    %     part2 = mpdusPayload(row+1, 1 : 5 - numel(part1));
-    %     tmpRow = row;
-    %     tmpIdx = idx;
-    %     checkHeader = [part1, part2];
-    %     if ~(checkHeader(1) == 8 && ismember(checkHeader(2), apids) && checkHeader(5) == 0)
-    %         % go to next idx
-    %         if idx < numel(mpdusPayload(row,:))
-    %             idx = idx + 1;
-    %         else
-    %             row = row + 1;
-    %             idx = 1;
-    %         end
-    %         continue
-    %     end
-    % end
+[nRows, nCols] = size(mpdusPayload);
+totalBytes = numel(mpdusPayload);
 
-    % function checkHeader()
-        
+maxPackets = nRows * 5;
+pp = cell(1, maxPackets);
+counter = int16(zeros(1,maxPackets));
+
+row = 1;
+idx = double(mod(mpduPointerDec(1), 2048) + 1);
+i = 1;
+j = 1;
+processed = 0;
+validHeader = 0;
+
+while processed < totalBytes && row <= nRows
+
+    tempPP = [];
+
     % Check: header continues onto the next row
-    if idx+6 > size(mpdusPayload, 2)
+    if idx+7 > nCols
         % header spans across row and row + 1
-        part1 = mpdusPayload(row, idx:end);
+        part1    = mpdusPayload(row, idx:end);
         tmpPart2 = mpdusPayload(row+1, 1:17); % worst case is 17 bytes in next row
         tmpHeader = [part1, tmpPart2];
 
-        if ~(tmpHeader(1) == 8 && ismember(tmpHeader(2), apids) && tmpHeader(6) == 0)
-            % go to next idx
-            if idx < numel(mpdusPayload(row,:))
-                idx = idx + 1;
-            else
-                row = row + 1;
-                idx = 1;
-            end
+        apid = tmpHeader(2);
+        
+        [row, idx, validHeader] = checkHeader(tmpHeader, apid, row, idx, nCols);
+        if ~validHeader
             continue
         end
+        counter(j) = calcCounter(tmpHeader);
 
         lenBytes = tmpHeader(5:6);
-        lenBits = int2bit(lenBytes.', 8).';
-        lenDec = double(bi2de(lenBits, 'left-msb'));
+        lenDec = double(uint16(lenBytes(1)) * 256 + uint16(lenBytes(2))); % eleganteres int2bit
         totalLen = 6 + lenDec + 1;
-        idx = totalLen - size(part1,2) + 1;
-        part2 = mpdusPayload(row+1, 1:idx);
-        pp{i} = [part1, part2];
+        idx = totalLen - numel(part1) + 1;
+        part2  = mpdusPayload(row+1, 1:idx);
+        tempPP = [part1, part2];
         row = row + 1;
+        processed = processed + totalLen;
 
     else
         % header fully contained in current row
-        lenBytes = mpdusPayload(row, idx+4:idx+5);
-
-        if ~(mpdusPayload(row, idx) == 8 && ismember(mpdusPayload(row, idx+1), apids) && mpdusPayload(row, idx+6) == 0)
-            % go to next idx
-            if idx < numel(mpdusPayload(row,:))
-                idx = idx + 1;
-            else
-                row = row + 1;
-                idx = 1;
-            end
+        apid = mpdusPayload(row, idx+1);
+        [row, idx, validHeader] = checkHeader(mpdusPayload(row, idx:idx+7), apid, row, idx, nCols);
+        if ~validHeader
             continue
         end
 
-        lenBits = int2bit(lenBytes.', 8).';
-        lenDec = double(bi2de(lenBits, 'left-msb'));
+        counter(j) = calcCounter(mpdusPayload(row, idx:idx+4));
+
+        lenBytes = mpdusPayload(row, idx+4:idx+5);
+        lenDec = double(uint16(lenBytes(1)) * 256 + uint16(lenBytes(2)));
         totalLen = 6 + lenDec + 1;
-        remaining = size(mpdusPayload, 2) - idx + 1;
+
+        remaining = nCols - idx + 1;
+
         if remaining > totalLen
             % standard case
-            pp{i} = mpdusPayload(row, idx:idx+totalLen-1);
-            idx = idx+totalLen;
+            tempPP = mpdusPayload(row, idx:idx+totalLen-1);
+            idx = idx + totalLen;
 
         elseif remaining == totalLen
             % no follow-up packet -> packet ends perfectly
-            pp{i} = mpdusPayload(row, idx:end);
-            idx = double(mod(mpduPointerDec(row+1), 2048) + 1);
+            tempPP = mpdusPayload(row, idx:end);
+            if row < nRows
+                idx = double(mod(mpduPointerDec(row+1), 2048) + 1);
+            end
             row = row + 1;
 
-        elseif row < size(mpdusPayload, 1)
+        elseif row < nRows
             % overflow into next row
             part1 = mpdusPayload(row, idx:end);
-            part2 = mpdusPayload(row+1, 1 : totalLen - numel(part1));
-            pp{i} = [part1, part2];
+            part2 = mpdusPayload(row+1, 1:totalLen-numel(part1));
+            tempPP = [part1, part2];
             P = mod(mpduPointerDec(row+1), 2048);
             idx = double(P + 1);
             row = row + 1;
+
         else
             % last incomplete mcu
-            pp{i} = mpdusPayload(row, idx:end);
+            tempPP = mpdusPayload(row, idx:end);
+            row = nRows + 1;
         end
+
+        processed = processed + totalLen;
     end
-    i = i+1;
-end
-% extract mcus
-mcus = cell(1, numel(pp));
-qualityFactors = cell(1, numel(pp));
-apids = zeros(1, numel(pp));
-for i = 1:numel(pp)
-    apids(i) = pp{i}(2);
-    qualityFactors{i} = pp{i}(1,20);
-    mcusDec = pp{i}(1,21:end);
-    mcus{i} = int2bit(mcusDec.', 8).';
+    if i > 1   
+        if counter(j) - counter(j-1) == 1 || counter(j) == 0
+            pp{i} = tempPP; 
+            j = j + 1;
+        elseif counter(j) - counter(j-1) > 1
+            i = i + counter(j) - counter(j-1);
+            pp{i} = tempPP;
+            j = j + 1;
+        else
+            continue
+        end
+    else
+        pp{i} = tempPP;
+        j = j + 1;
+    end
+    i = i + 1;
 end
 
-save("data/mcus.mat", "mcus", "qualityFactors", "apids");
+% cut to actual length
+pp = pp(1:i-1);   
+counter = counter(1:j-1);
+
+% extract mcus
+nPP = numel(pp);
+mcus = cell(1, nPP);
+qualityFactors = zeros(1, nPP);
+apids = zeros(1, nPP);
+
+for k = 1:nPP
+    if ~isempty(pp{k})
+        apids(k) = pp{k}(2);
+        qualityFactors(k) = pp{k}(20);
+        mcusDec = pp{k}(21:end);
+        mcus{k} = int2bit(mcusDec.', 8).';
+    end
+end
+toc
+save("data/mcus2.mat", "mcus", "qualityFactors", "apids");
