@@ -108,13 +108,13 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
                 pos = pos + length(key);
             end
             thumbnails{i} = magnitudes;
-            if numel(thumbnails) == 200
-                break
-            end
+            % if numel(thumbnails) == 200
+            %     break
+            % end
         end
-        % save('data/thumbnails2.mat', 'thumbnails');
+        save('data/thumbnails.mat', 'thumbnails');
     else
-        load('data/thumbnails2.mat');
+        load('data/thumbnails.mat');
     end
     
     spatials = cell(1, numel(thumbnails));
