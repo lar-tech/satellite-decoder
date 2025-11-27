@@ -14,22 +14,27 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
     
     % create huffman tables
     [DCMap, ACMap] = huffman(Huffman);
-
+    
     % quality factor
     F = cell(1, numel(qualityFactors));
     for i = 1:numel(qualityFactors)
-        if 20 < qualityFactors{i} && qualityFactors{i} < 50
-            F{i} = 5000 / qualityFactors{i};
-        elseif 50 <= qualityFactors{i} && qualityFactors{i} <= 100
-            F{i} = 200 - 2 * qualityFactors{i};
-        else
-            F{i} = 100;
+        if ~isempty(qualityFactors)
+            if 20 < qualityFactors(i) && qualityFactors(i) < 50
+                F{i} = 5000 / qualityFactors(i);
+            elseif 50 <= qualityFactors(i) && qualityFactors(i) <= 100
+                F{i} = 200 - 2 * qualityFactors(i);
+            else
+                F{i} = 100;
+            end
         end
     end
-
+    
     % huffman, run-size decoding
     if ~Params.thumbnailsWorkspace
         for i = 1:numel(mcus)
+            if isempty(mcus{i}) 
+                continue
+            end
             mcu = mcus{i};
             pos = 1;
             if apids(i) == 70
@@ -103,14 +108,15 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
                 pos = pos + length(key);
             end
             thumbnails{i} = magnitudes;
-            if numel(thumbnails) == 200
-                break
-            end
+            % if numel(thumbnails) == 200
+            %     break
+            % end
         end
+        save('data/thumbnails2.mat', 'thumbnails');
     else
-        load('data/thumbnails.mat');
+        load('data/thumbnails2.mat');
     end
-
+    
     spatials = cell(1, numel(thumbnails));
     for i = 1:numel(thumbnails)
         magnitudes = thumbnails{i};
@@ -141,7 +147,7 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
             spatials{i}{j} = idct2(zigzagQuant) + 128;
         end
     end
-
+    
     channel64 = [];
     channel65 = [];
     channel68 = [];
