@@ -1,4 +1,12 @@
 function softBitsAll = constellation(recursive, symbols, Params)
+    function softBitsConfirmed = findPeaksConstellationError(softBitsCombined, syncAsmBits)
+        [corrError, lags] = xcorr(softBitsCombined, syncAsmBits);
+        corrNormalized = abs(corrError)./max(abs(corrError));
+        signalLevelError = quantile(abs(corrNormalized), 0.999);
+        [pks, locs] = findpeaks(corrNormalized, 'MinPeakDistance',16384-1, 'Threshold', 0.1, 'MinPeakHeight', signalLevelError+0.2); % , 'MinPeakHeight', 40+signalLevel
+        softBitsConfirmed = softBitsCombined(1:lags(locs(end)));
+    end
+
     % sync word
     syncAsm = 'FCA2B63DB00D9794';
     syncAsmBytes = sscanf(syncAsm, '%2x').';
@@ -67,30 +75,31 @@ function softBitsAll = constellation(recursive, symbols, Params)
                     constellationErrorFirst = 1; 
                 end
             end
-    
+            
+            % last few frames have different constellation
             if constellationErrorLast
                 constellationErrorLast = 0;
                 softBitsCombined = [part1; softBits];
-                [corr, lags] = xcorr(softBitsCombined, syncAsmBits);
-                corrNormalized = abs(corr)./max(abs(corr));
-                signalLevel = quantile(abs(corrNormalized), 0.999);
-                [pks, locs] = findpeaks(corrNormalized, 'MinPeakDistance',16384-1, 'Threshold', 0.1, 'MinPeakHeight', signalLevel+0.2); % , 'MinPeakHeight', 40+signalLevel
-                softBitsConfirmed = softBitsCombined(1:lags(locs(end)));
+                softBitsConfirmed = findPeaksConstellationError(softBitsCombined, syncAsmBits);
                 break
+
+            % first few frames have different constellation
             elseif constellationErrorFirst
                 constellationErrorFirst = 0;
                 softBitsCombined = [softBits; part2];
-                [corr, lags] = xcorr(softBitsCombined, syncAsmBits);
-                corrNormalized = abs(corr)./max(abs(corr));
-                signalLevel = quantile(abs(corrNormalized), 0.999);
-                [pks, locs] = findpeaks(corrNormalized, 'MinPeakDistance',16384-1, 'Threshold', 0.1, 'MinPeakHeight', signalLevel+0.2); % , 'MinPeakHeight', 40+signalLevel
-                softBitsConfirmed = softBitsCombined(1:lags(locs(end)));
+                softBitsConfirmed = findPeaksConstellationError(softBitsCombined, syncAsmBits);
                 break
+            
+            % recursive call for different constellations
             elseif all(~mod(widths, 1024)) && recursive
                 softBitsConfirmed = softBits;
                 break
+            
+            % last frame should contain alls softBits
             elseif all(~mod(widths, 1024)) && lastFrame
                 softBitsConfirmed = softBits;
+                
+            % normal case
             elseif all(~mod(widths, 1024)) && ~lastFrame && ~recursive
                 softBitsConfirmed = softBits(1:lags(locs(end)));
                 break
@@ -98,18 +107,19 @@ function softBitsAll = constellation(recursive, symbols, Params)
         end
         softBitsAll = [softBitsAll; softBitsConfirmed];
         i = i + numel(softBitsConfirmed)/2;
-    end
 
-    % plotting
-    if Params.plotting
-        figure;
-        plot(lags, corr); hold on;
-        plot(lags(locs), pks, 'rx');
-        hold off;
-        xlim([firstFrameStart lastFrameStart]);
-        xlabel('Samples');
-        ylabel('Cross-correlation amplitude');
-        title(sprintf('Cross-correlation of FCA2B63DB00D9794 and encoded Softbits using %s', mat2str(Params.constellations{i})));
-        grid on;
+        % plotting
+        if Params.plotting && i <= 7401293
+            figure(2);
+            plot(lags, corrNormalized); hold on;
+            plot(lags(locs), pks, 'rx');
+            hold off;
+            xlim([0 max(lags)]);
+            xlabel('Samples');
+            ylabel('Cross-correlation Amplitude');
+            title(sprintf('Cross-correlation of FCA2B63DB00D9794 and encoded Softbits using %s', mat2str(Params.constellations{j})));
+            grid on;
+            pause(0.01);
+        end
     end
 end
