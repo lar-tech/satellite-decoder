@@ -51,19 +51,20 @@ function symbols = demod(Data, Params, Rcc)
         symBlock = carrierSync(ySync);
     
         symbols = [symbols; symBlock];
-    
+
         i = i + Params.blockSize;
-    end
-       
-    % plotting
-    if Params.plotting
-        figure(1);
-        plot(real(symbols(1:1e6)), imag(symbols(1:1e6)), marker='.', LineStyle='none')
-        axis equal;
-        axis([-2.5 2.5 -2.5 2.5]);
-        grid on;
-        xlabel('I-Component');
-        ylabel('Q-Component');
-        title('Demodulated QPSK-Symbols');
+    
+        % % plotting
+        % if Params.plotting
+        %     figure(1);
+        %     plot(real(symBlock), imag(symBlock), marker='.', LineStyle='none')
+        %     axis equal;
+        %     axis([-2.5 2.5 -2.5 2.5]);
+        %     grid on;
+        %     xlabel('I-Component');
+        %     ylabel('Q-Component');
+        %     title('Demodulated QPSK-Symbols');
+        %     pause(0.01);
+        % end
     end
 end
