@@ -1,4 +1,4 @@
-function [mcus, qualityFactors, apids] = extraction(cvcdus)
+function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
     function [row, idx, validHeader] = checkHeader(Header, apid, row, idx, nCols)
         if ~(Header(1) == 8 && ismember(apid, [64 65 68 70]) && Header(7) == 0)
             % go to next idx
@@ -23,7 +23,6 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus)
         counterBit = counterBit(:,3:end);
         counter = int16(bi2de(counterBit, 'left-msb'));
     end
-    
     
     % extract header infos
     vcdus = cvcdus(:,1:end-128);
@@ -122,10 +121,15 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus)
     
             processed = processed + totalLen;
         end
-        if i > 1   
+
+        % handle missing partial packets
+        if i > 1
+            % normal case
             if counter(j) - counter(j-1) == 1 || counter(j) == 0
                 pp{i} = tempPP; 
                 j = j + 1;
+
+            % missing partial packets
             elseif counter(j) - counter(j-1) > 1
                 i = i + counter(j) - counter(j-1);
                 pp{i} = tempPP;
@@ -134,6 +138,7 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus)
                 continue
             end
         else
+            % normal case for first packet
             pp{i} = tempPP;
             j = j + 1;
         end
@@ -142,7 +147,6 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus)
     
     % cut to actual length
     pp = pp(1:i-1);   
-    counter = counter(1:j-1);
     
     % extract mcus
     nPP = numel(pp);
@@ -157,5 +161,9 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus)
             mcusDec = pp{k}(21:end);
             mcus{k} = int2bit(mcusDec.', 8).';
         end
+    end
+
+    if Params.plotting
+        fprintf("Extracted %d MCUs. %d MCUs are missing.\n", nPP, sum(cellfun(@isempty, pp)));
     end
 end

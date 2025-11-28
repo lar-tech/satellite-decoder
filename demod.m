@@ -54,17 +54,17 @@ function symbols = demod(Data, Params, Rcc)
 
         i = i + Params.blockSize;
     
-        % % plotting
-        % if Params.plotting
-        %     figure(1);
-        %     plot(real(symBlock), imag(symBlock), marker='.', LineStyle='none')
-        %     axis equal;
-        %     axis([-2.5 2.5 -2.5 2.5]);
-        %     grid on;
-        %     xlabel('I-Component');
-        %     ylabel('Q-Component');
-        %     title('Demodulated QPSK-Symbols');
-        %     pause(0.01);
-        % end
+        % plotting
+        if Params.plotting
+            figure(1);
+            plot(real(symBlock), imag(symBlock), marker='.', LineStyle='none')
+            axis equal;
+            axis([-2.5 2.5 -2.5 2.5]);
+            grid on;
+            xlabel('I-Component');
+            ylabel('Q-Component');
+            title('Demodulation of QPSK-Symbols');
+            pause(0.01);
+        end
     end
 end
