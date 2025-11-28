@@ -1,4 +1,4 @@
-function [cvcdus, payloads, decodedBits] = decode(softBits, Viterbi, Descrambler, Params)
+function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
     % viterbi-decoder
     trellis = poly2trellis(Viterbi.constLen, Viterbi.codeGenPoly);
     vDec = comm.ViterbiDecoder( ...

@@ -1,25 +1,26 @@
 clc; clear; close all;
+
 tic
 % get config
 [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig();
+
 load("data/cvcdus.mat");
 
-
 function [row, idx, validHeader] = checkHeader(Header, apid, row, idx, nCols)
-    if ~(Header(1) == 8 && ismember(apid, [64 65 68 70]) && Header(7) == 0)
-        % go to next idx
-        if idx < nCols
-            idx = idx + 1;
+        if ~(Header(1) == 8 && ismember(apid, [64 65 68 70]) && Header(7) == 0)
+            % go to next idx
+            if idx < nCols
+                idx = idx + 1;
+            else
+                row = row + 1;
+                idx = 1;
+            end
+            validHeader = 0;
         else
-            row = row + 1;
-            idx = 1;
+            validHeader = 1;
         end
-        validHeader = 0;
-    else
-        validHeader = 1;
     end
-end
-
+    
 function counter = calcCounter(Header)
     counterPP1 = Header(3).';
     counterPP1 = int2bit(counterPP1.', 8).';
@@ -29,7 +30,6 @@ function counter = calcCounter(Header)
     counterBit = counterBit(:,3:end);
     counter = int16(bi2de(counterBit, 'left-msb'));
 end
-
 
 % extract header infos
 vcdus = cvcdus(:,1:end-128);
@@ -128,10 +128,15 @@ while processed < totalBytes && row <= nRows
 
         processed = processed + totalLen;
     end
-    if i > 1   
+
+    % handle missing partial packets
+    if i > 1
+        % normal case
         if counter(j) - counter(j-1) == 1 || counter(j) == 0
             pp{i} = tempPP; 
             j = j + 1;
+
+        % missing partial packets
         elseif counter(j) - counter(j-1) > 1
             i = i + counter(j) - counter(j-1);
             pp{i} = tempPP;
@@ -140,6 +145,7 @@ while processed < totalBytes && row <= nRows
             continue
         end
     else
+        % normal case for first packet
         pp{i} = tempPP;
         j = j + 1;
     end
@@ -148,21 +154,26 @@ end
 
 % cut to actual length
 pp = pp(1:i-1);   
-counter = counter(1:j-1);
 
 % extract mcus
 nPP = numel(pp);
 mcus = cell(1, nPP);
 qualityFactors = zeros(1, nPP);
 apids = zeros(1, nPP);
+mcuCounter = zeros(1, nPP);
 
-for k = 1:nPP
-    if ~isempty(pp{k})
-        apids(k) = pp{k}(2);
-        qualityFactors(k) = pp{k}(20);
-        mcusDec = pp{k}(21:end);
-        mcus{k} = int2bit(mcusDec.', 8).';
+for i = 1:nPP
+    if ~isempty(pp{i})
+        apids(i) = pp{i}(2);
+        qualityFactors(i) = pp{i}(20);
+        mcusDec = pp{i}(21:end);
+        mcus{i} = int2bit(mcusDec.', 8).';
+        mcuCounter(i) = pp{i}(15);
     end
 end
+
+if Params.plotting
+    fprintf("Extracted %d MCUs. %d MCUs are missing.\n", nPP, sum(cellfun(@isempty, pp)));
+end
+
 toc
-save("data/mcus2.mat", "mcus", "qualityFactors", "apids");
