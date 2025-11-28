@@ -7,7 +7,7 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
 
     % general
     Params.blockSize = 98304;
-    Params.plotting = true;   
+    Params.plotting = false;   
     Params.thumbnailsWorkspace = false;
     Params.minClip = -0.01;             
     Params.maxClip = 0.01;              

@@ -193,21 +193,20 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
     Images.jpeg64 = uint8(jpeg64);
     Images.jpeg65 = uint8(jpeg65);
     Images.jpeg68 = uint8(jpeg68);
-    % 
-    % Images.rgb = cat(3, Images.jpeg68, Images.jpeg65, Images.jpeg64);
-    % 
-    % if Params.plotting
-    %     figure;
-    %     imshow(Images.jpeg64);
-    %     title("Channel 64")
-    %     figure;
-    %     imshow(Images.jpeg65);
-    %     title("Channel 65")
-    %     figure;
-    %     imshow(Images.jpeg68);
-    %     title("Channel 68")
-    %     figure;
-    %     imshow(Images.rgb);
-    %     title("RGB aus 68/65/64")
-    % end
+    Images.rgb = cat(3, Images.jpeg68, Images.jpeg65, Images.jpeg64);
+
+    if Params.plotting
+        figure(4);
+        imshow(Images.jpeg64);
+        title("Channel 64")
+        figure(5);
+        imshow(Images.jpeg65);
+        title("Channel 65")
+        figure(6);
+        imshow(Images.jpeg68);
+        title("Channel 68")
+        figure(7);
+        imshow(Images.rgb);
+        title("Combined RGB-Image (68,65,64)")
+    end
 end
