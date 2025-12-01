@@ -160,6 +160,7 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
             qualityFactors(k) = pp{k}(20);
             mcusDec = pp{k}(21:end);
             mcus{k} = int2bit(mcusDec.', 8).';
+            mcuCounter(k) = pp{k}(15);
         end
     end
 

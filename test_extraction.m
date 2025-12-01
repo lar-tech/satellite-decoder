@@ -1,5 +1,11 @@
 clc; clear; close all;
 
+load("data/mcus.mat")
+
+mcusExample = mcus;
+
+clear mcus;
+
 tic
 % get config
 [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig();
@@ -161,7 +167,6 @@ mcus = cell(1, nPP);
 qualityFactors = zeros(1, nPP);
 apids = zeros(1, nPP);
 mcuCounter = zeros(1, nPP);
-
 for i = 1:nPP
     if ~isempty(pp{i})
         apids(i) = pp{i}(2);
@@ -171,6 +176,83 @@ for i = 1:nPP
         mcuCounter(i) = pp{i}(15);
     end
 end
+
+% fill mcus if not 14 consective apids
+missingIdx = find(apids == 0);
+breaks = [0, find(diff(missingIdx) > 1), numel(missingIdx)];
+
+for k = 1:numel(breaks)-1
+    segment = missingIdx(breaks(k)+1 : breaks(k+1));
+    idxStart = segment(1);
+    idxEnd   = segment(end);
+
+    % check 14-block before
+    leftOk  = false;
+    rightOk = false;
+    if idxStart > 14
+        leftBlock = apids(idxStart-14 : idxStart-1);
+        if all(leftBlock ~= 0) && isscalar(unique(leftBlock))
+            leftOk  = true;
+            leftVal = leftBlock(1);
+        end
+    end
+
+    % check block after first non-zero-element
+    nApids = numel(apids);
+    firstNonZero = idxEnd + 1;
+    while firstNonZero <= nApids && apids(firstNonZero) == 0
+        firstNonZero = firstNonZero + 1;
+    end
+    if firstNonZero + 13 <= nApids
+        rightBlock = apids(firstNonZero : firstNonZero+13);
+        if all(rightBlock ~= 0) && isscalar(unique(rightBlock))
+            rightOk  = true;
+            rightVal = rightBlock(1);
+        end
+    end
+
+    % fill gaps
+    fillVal = [];
+
+    % case: left and right are konsistent
+    if leftOk && rightOk && leftVal == rightVal
+        fillVal = leftVal;
+
+    % case: only right is fine, i.e. left is missing
+    elseif rightOk
+        fillVal = rightVal;
+
+    % case: only left is fine, i.e. right is missing
+    elseif leftOk
+        fillVal = leftVal;
+
+    % case: right not 14-longFall
+    elseif firstNonZero <= nApids && apids(firstNonZero) ~= 0
+        fillVal = apids(firstNonZero);
+    end
+
+    apids(idxStart:idxEnd) = fillVal;
+end
+
+% drop start and end mcus if not 14 consective apids
+nApids = numel(apids);
+startIdx = NaN;
+for i = 1:(nApids - 14 + 1)
+    if all(apids(i) == apids(i:i+14-1))
+        startIdx = i;
+        break
+    end
+end
+endIdx = NaN;
+for i = nApids-14+1:-1:1
+    if all(apids(i) == apids(i:i+14-1))
+        endIdx = i + 14 - 1;
+        break
+    end
+end
+apids = apids(startIdx:endIdx);
+qualityFactors = qualityFactors(startIdx:endIdx);
+mcus = mcus(startIdx:endIdx);
 
 if Params.plotting
     fprintf("Extracted %d MCUs. %d MCUs are missing.\n", nPP, sum(cellfun(@isempty, pp)));

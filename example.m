@@ -39,18 +39,18 @@ end
 cvcdus = cadus(:,5:end);
 
 % mcu extraction
-[mcus, qualityFactors, apids] = extraction(cvcdus);
+[mcus, qualityFactors, apids] = extraction(cvcdus, Params);
 
 % jpeg decoding
 Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params);
 
-% cat rgb 
-h = min([size(Images.jpeg64,1), size(Images.jpeg65,1), size(Images.jpeg68,1)]);
-w = 1568;
-
-R = Images.jpeg64(1:h, 1:w);
-G = Images.jpeg65(1:h, 1:w);
-B = Images.jpeg68(1:h, 1:w);
+% % cat rgb 
+% h = min([size(Images.jpeg64,1), size(Images.jpeg65,1), size(Images.jpeg68,1)]);
+% w = 1568;
+% 
+% R = Images.jpeg64(1:h, 1:w);
+% G = Images.jpeg65(1:h, 1:w);
+% B = Images.jpeg68(1:h, 1:w);
 
 % Images.rgb = cat(3, B, G, R);      
 % 
