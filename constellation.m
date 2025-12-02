@@ -14,6 +14,18 @@ function softBitsAll = constellation(recursive, symbols, Params)
     syncAsmBits = reshape(syncAsmBits.', 1, []);
     syncAsmBits = 2*double(syncAsmBits)-1;
     
+    hPlot = [];
+    hPeaks = [];
+    if Params.plotting && ~recursive
+        figure(2);
+        hPlot  = plot(nan, nan); hold on;
+        hPeaks = plot(nan, nan, 'rx');
+        hold off;
+        xlabel('Samples');
+        ylabel('Cross-correlation Amplitude');
+        grid on;
+    end
+    
     i = 1;
     constellationErrorLast = 0;
     constellationErrorFirst = 0;
@@ -110,16 +122,11 @@ function softBitsAll = constellation(recursive, symbols, Params)
 
         % plotting
         if Params.plotting && i <= 7401293
-            figure(2);
-            plot(lags, corrNormalized); hold on;
-            plot(lags(locs), pks, 'rx');
-            hold off;
+            set(hPlot, 'XData', lags, 'YData', corrNormalized);
+            set(hPeaks, 'XData', lags(locs), 'YData', pks);
             xlim([0 max(lags)]);
-            xlabel('Samples');
-            ylabel('Cross-correlation Amplitude');
             title(sprintf('Cross-correlation of FCA2B63DB00D9794 and encoded Softbits using %s', mat2str(Params.constellations{j})));
-            grid on;
-            pause(0.01);
+            drawnow;
         end
     end
 end
