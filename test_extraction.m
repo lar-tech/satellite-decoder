@@ -1,10 +1,10 @@
 clc; clear; close all;
 
-load("data/mcus.mat")
-
-mcusExample = mcus;
-
-clear mcus;
+% load("data/mcus.mat")
+% 
+% mcusExample = mcus;
+% 
+% clear mcus;
 
 tic
 % get config
@@ -159,103 +159,69 @@ while processed < totalBytes && row <= nRows
 end
 
 % cut to actual length
-pp = pp(1:i-1);   
+pp = pp(1:i-1);
 
-% extract mcus
+% clean up the partial packets
 nPP = numel(pp);
-mcus = cell(1, nPP);
+validApid = [64 65 68 70];
+% preallocate with 0 and set it to 1 if the thumbnail is correct
+keepPP = false(1, nPP);
+
+expectedCounter   = 0:14:182;
+nPerThumb  = numel(expectedCounter);
+
+% only non-empty pp
+nonEmptyIdx = find(~cellfun(@isempty, pp));   
+
+% extract apid of all the pp
+apidAll = cellfun(@(p) p(2), pp(nonEmptyIdx));  
+
+for a = 1:numel(validApid)
+    apidVal = validApid(a);  
+    % index of the non-empty pp of the current apidVal
+    idxApid = nonEmptyIdx(apidAll == apidVal);        
+
+    mcuCounters = cellfun(@(p) double(p(15)), pp(idxApid));
+    % gives the start of each thumbnail
+    startThumbnail = find(mcuCounters == 0);
+
+    for k = 1:numel(startThumbnail)
+
+        startIdx = startThumbnail(k);
+        endIdx = startIdx;
+    
+        % continue the segment only while the next counter exists and increases strictly (transition 182 -> 0)  
+        while endIdx + 1 <= numel(mcuCounters) && mcuCounters(endIdx + 1) > mcuCounters(endIdx)
+            endIdx = endIdx + 1;
+        end
+        thumbnailCounters = mcuCounters(startIdx:endIdx);
+    
+        % keep the segment only if length and counter pattern match exactly
+        if numel(thumbnailCounters) == nPerThumb && isequal(thumbnailCounters(:).', expectedCounter)
+            keepPP(idxApid(startIdx:endIdx)) = true;
+        end
+    end
+end
+
+ppClean = pp(keepPP);
+
+nPP = numel(ppClean);
+mcus           = cell(1, nPP);
 qualityFactors = zeros(1, nPP);
-apids = zeros(1, nPP);
-mcuCounter = zeros(1, nPP);
+apids          = zeros(1, nPP);
+mcuCounter     = zeros(1, nPP);
+
 for i = 1:nPP
-    if ~isempty(pp{i})
-        apids(i) = pp{i}(2);
-        qualityFactors(i) = pp{i}(20);
-        mcusDec = pp{i}(21:end);
-        mcus{i} = int2bit(mcusDec.', 8).';
-        mcuCounter(i) = pp{i}(15);
-    end
+    p = ppClean{i};
+    apids(i)          = p(2);
+    qualityFactors(i) = p(20);
+    mcusDec           = p(21:end);
+    mcus{i}           = int2bit(mcusDec.', 8).';
+    mcuCounter(i)     = p(15);
 end
-
-% fill mcus if not 14 consective apids
-missingIdx = find(apids == 0);
-breaks = [0, find(diff(missingIdx) > 1), numel(missingIdx)];
-
-for k = 1:numel(breaks)-1
-    segment = missingIdx(breaks(k)+1 : breaks(k+1));
-    idxStart = segment(1);
-    idxEnd   = segment(end);
-
-    % check 14-block before
-    leftOk  = false;
-    rightOk = false;
-    if idxStart > 14
-        leftBlock = apids(idxStart-14 : idxStart-1);
-        if all(leftBlock ~= 0) && isscalar(unique(leftBlock))
-            leftOk  = true;
-            leftVal = leftBlock(1);
-        end
-    end
-
-    % check block after first non-zero-element
-    nApids = numel(apids);
-    firstNonZero = idxEnd + 1;
-    while firstNonZero <= nApids && apids(firstNonZero) == 0
-        firstNonZero = firstNonZero + 1;
-    end
-    if firstNonZero + 13 <= nApids
-        rightBlock = apids(firstNonZero : firstNonZero+13);
-        if all(rightBlock ~= 0) && isscalar(unique(rightBlock))
-            rightOk  = true;
-            rightVal = rightBlock(1);
-        end
-    end
-
-    % fill gaps
-    fillVal = [];
-
-    % case: left and right are konsistent
-    if leftOk && rightOk && leftVal == rightVal
-        fillVal = leftVal;
-
-    % case: only right is fine, i.e. left is missing
-    elseif rightOk
-        fillVal = rightVal;
-
-    % case: only left is fine, i.e. right is missing
-    elseif leftOk
-        fillVal = leftVal;
-
-    % case: right not 14-longFall
-    elseif firstNonZero <= nApids && apids(firstNonZero) ~= 0
-        fillVal = apids(firstNonZero);
-    end
-
-    apids(idxStart:idxEnd) = fillVal;
-end
-
-% drop start and end mcus if not 14 consective apids
-nApids = numel(apids);
-startIdx = NaN;
-for i = 1:(nApids - 14 + 1)
-    if all(apids(i) == apids(i:i+14-1))
-        startIdx = i;
-        break
-    end
-end
-endIdx = NaN;
-for i = nApids-14+1:-1:1
-    if all(apids(i) == apids(i:i+14-1))
-        endIdx = i + 14 - 1;
-        break
-    end
-end
-apids = apids(startIdx:endIdx);
-qualityFactors = qualityFactors(startIdx:endIdx);
-mcus = mcus(startIdx:endIdx);
 
 if Params.plotting
-    fprintf("Extracted %d MCUs. %d MCUs are missing.\n", nPP, sum(cellfun(@isempty, pp)));
+    fprintf("Extracted %d MCUs. %d MCUs are missing.\n", nPP, numel(pp)-numel(ppClean));
 end
 
 toc
