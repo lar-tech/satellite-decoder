@@ -33,6 +33,20 @@ function symbols = demod(Data, Params, Rcc)
     
     i = 1;
     symbols = [];
+
+    hPlot = [];
+    if Params.plotting
+        figure(1); clf;
+        hPlot = plot(nan, nan, '.', 'MarkerSize', 8);
+        axis equal;
+        axis([-2.5 2.5 -2.5 2.5]);
+        grid on;
+        xlabel('I');
+        ylabel('Q');
+        title('QPSK Constellation');
+    end
+    
+
     while i+Params.blockSize <= numel(yFilteredAll)
         if i+Params.blockSize <= numel(yFilteredAll)
             yFiltered = yFilteredAll(i:i+Params.blockSize-1);
@@ -56,15 +70,8 @@ function symbols = demod(Data, Params, Rcc)
     
         % plotting
         if Params.plotting
-            figure(1);
-            plot(real(symBlock), imag(symBlock), marker='.', LineStyle='none')
-            axis equal;
-            axis([-2.5 2.5 -2.5 2.5]);
-            grid on;
-            xlabel('I-Component');
-            ylabel('Q-Component');
-            title('Demodulation of QPSK-Symbols');
-            pause(0.01);
+            set(hPlot, 'XData', real(symBlock), 'YData', imag(symBlock));
+            drawnow limitrate;
         end
     end
 end

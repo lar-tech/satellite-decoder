@@ -18,7 +18,7 @@ function softBitsAll = constellation(recursive, symbols, Params)
     hPeaks = [];
     if Params.plotting && ~recursive
         figure(2);
-        hPlot  = plot(nan, nan); hold on;
+        hPlot = plot(nan, nan); hold on;
         hPeaks = plot(nan, nan, 'rx');
         hold off;
         xlabel('Samples');

@@ -17,12 +17,6 @@ cvcdus = decode(softBits, Viterbi, Descrambler, Params);
 [mcus, qualityFactors, apids] = extraction(cvcdus, Params);
 
 % % jpeg decoding
-% Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params);
-% figure;
-% imshow(Images.jpeg64);
-% figure;
-% imshow(Images.jpeg65);
-% figure;
-% imshow(Images.jpeg68);
+jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT);
 
 toc
