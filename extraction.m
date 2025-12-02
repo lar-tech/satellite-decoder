@@ -13,7 +13,7 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
             validHeader = 1;
         end
     end
-    
+        
     function counter = calcCounter(Header)
         counterPP1 = Header(3).';
         counterPP1 = int2bit(counterPP1.', 8).';
@@ -121,14 +121,14 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
     
             processed = processed + totalLen;
         end
-
+    
         % handle missing partial packets
         if i > 1
             % normal case
             if counter(j) - counter(j-1) == 1 || counter(j) == 0
                 pp{i} = tempPP; 
                 j = j + 1;
-
+    
             % missing partial packets
             elseif counter(j) - counter(j-1) > 1
                 i = i + counter(j) - counter(j-1);
@@ -146,25 +146,68 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
     end
     
     % cut to actual length
-    pp = pp(1:i-1);   
+    pp = pp(1:i-1);
     
-    % extract mcus
+    % clean up the partial packets
     nPP = numel(pp);
-    mcus = cell(1, nPP);
-    qualityFactors = zeros(1, nPP);
-    apids = zeros(1, nPP);
+    validApid = [64 65 68 70];
+    % preallocate with 0 and set it to 1 if the thumbnail is correct
+    keepPP = false(1, nPP);
     
-    for k = 1:nPP
-        if ~isempty(pp{k})
-            apids(k) = pp{k}(2);
-            qualityFactors(k) = pp{k}(20);
-            mcusDec = pp{k}(21:end);
-            mcus{k} = int2bit(mcusDec.', 8).';
-            mcuCounter(k) = pp{k}(15);
+    expectedCounter   = 0:14:182;
+    nPerThumb  = numel(expectedCounter);
+    
+    % only non-empty pp
+    nonEmptyIdx = find(~cellfun(@isempty, pp));   
+    
+    % extract apid of all the pp
+    apidAll = cellfun(@(p) p(2), pp(nonEmptyIdx));  
+    
+    for a = 1:numel(validApid)
+        apidVal = validApid(a);  
+        % index of the non-empty pp of the current apidVal
+        idxApid = nonEmptyIdx(apidAll == apidVal);        
+    
+        mcuCounters = cellfun(@(p) double(p(15)), pp(idxApid));
+        % gives the start of each thumbnail
+        startThumbnail = find(mcuCounters == 0);
+    
+        for k = 1:numel(startThumbnail)
+    
+            startIdx = startThumbnail(k);
+            endIdx = startIdx;
+        
+            % continue the segment only while the next counter exists and increases strictly (transition 182 -> 0)  
+            while endIdx + 1 <= numel(mcuCounters) && mcuCounters(endIdx + 1) > mcuCounters(endIdx)
+                endIdx = endIdx + 1;
+            end
+            thumbnailCounters = mcuCounters(startIdx:endIdx);
+        
+            % keep the segment only if length and counter pattern match exactly
+            if numel(thumbnailCounters) == nPerThumb && isequal(thumbnailCounters(:).', expectedCounter)
+                keepPP(idxApid(startIdx:endIdx)) = true;
+            end
         end
     end
-
+    
+    ppClean = pp(keepPP);
+    
+    nPP = numel(ppClean);
+    mcus           = cell(1, nPP);
+    qualityFactors = zeros(1, nPP);
+    apids          = zeros(1, nPP);
+    mcuCounter     = zeros(1, nPP);
+    
+    for i = 1:nPP
+        p = ppClean{i};
+        apids(i)          = p(2);
+        qualityFactors(i) = p(20);
+        mcusDec           = p(21:end);
+        mcus{i}           = int2bit(mcusDec.', 8).';
+        mcuCounter(i)     = p(15);
+    end
+    
     if Params.plotting
-        fprintf("Extracted %d MCUs. %d MCUs are missing.\n", nPP, sum(cellfun(@isempty, pp)));
+        fprintf("Extracted %d MCUs. %d MCUs are missing.\n", nPP, numel(pp)-numel(ppClean));
     end
 end
