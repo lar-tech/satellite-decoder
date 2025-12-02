@@ -193,18 +193,18 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
     ppClean = pp(keepPP);
     
     nPP = numel(ppClean);
-    mcus           = cell(1, nPP);
+    mcus = cell(1, nPP);
     qualityFactors = zeros(1, nPP);
-    apids          = zeros(1, nPP);
-    mcuCounter     = zeros(1, nPP);
+    apids = zeros(1, nPP);
+    mcuCounter = zeros(1, nPP);
     
     for i = 1:nPP
         p = ppClean{i};
-        apids(i)          = p(2);
+        apids(i) = p(2);
         qualityFactors(i) = p(20);
-        mcusDec           = p(21:end);
-        mcus{i}           = int2bit(mcusDec.', 8).';
-        mcuCounter(i)     = p(15);
+        mcusDec = p(21:end);
+        mcus{i} = int2bit(mcusDec.', 8).';
+        mcuCounter(i) = p(15);
     end
     
     if Params.plotting
