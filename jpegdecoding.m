@@ -1,4 +1,4 @@
-function jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT)
+function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT)
     % calculate magnitude
     function magnitude = decodeMagnitude(codeWord, bitArray)
         if codeWord == 0
@@ -181,4 +181,7 @@ function jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT)
             end
         end  
     end
+    Images.jpeg64 = jpeg64;
+    Images.jpeg65 = jpeg65;
+    Images.jpeg68 = jpeg68;
 end
