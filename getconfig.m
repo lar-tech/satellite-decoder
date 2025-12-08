@@ -7,7 +7,11 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
 
     % general
     Params.blockSize = 98304;
-    Params.plotting = true;   
+    Params.plotting = true;
+    Params.export = true;
+    if ~exist("data/plots", "dir")
+        mkdir("data/plots")
+    end
     Params.minClip = -0.01;             
     Params.maxClip = 0.01;              
     Params.M = 4;                       

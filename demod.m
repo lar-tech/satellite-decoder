@@ -74,4 +74,7 @@ function symbols = demod(Data, Params, Rcc)
             drawnow limitrate;
         end
     end
+    if Params.plotting && Params.export
+        exportgraphics(gcf, "data/plots/demodulated.pdf")
+    end
 end

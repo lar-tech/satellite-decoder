@@ -1,4 +1,4 @@
-function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT)
+function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params)
     % calculate magnitude
     function magnitude = decodeMagnitude(codeWord, bitArray)
         if codeWord == 0
@@ -30,13 +30,13 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT)
     end
     
     figure;
-    subplot(3,1,1);
+    sub64 = subplot(3,1,1);
     h64 = imshow(uint8(ones(664,1568)));
     title('Channel 64');
-    subplot(3,1,2);
+    sub65 = subplot(3,1,2);
     h65 = imshow(uint8(ones(664,1568)));
     title('Channel 65');
-    subplot(3,1,3);
+    sub68 = subplot(3,1,3);
     h68 = imshow(uint8(ones(664,1568)));
     title('Channel 68');
     
@@ -181,7 +181,25 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT)
             end
         end  
     end
+    if Params.export
+        exportgraphics(gcf, "data/plots/images.pdf")
+        exportgraphics(sub64, "data/plots/image_channel64.pdf")
+        exportgraphics(sub65, "data/plots/image_channel65.pdf")
+        exportgraphics(sub68, "data/plots/image_channel68.pdf")
+    end
+
+    IR = 255 - uint8(jpeg68);
+    rgb = cat(3, uint8(jpeg64), uint8(jpeg65), IR);
+
+    figure;
+    imshow(rgb);
+    title("RGB Image");
+    if Params.export
+        exportgraphics(gcf, "data/plots/image_rgb.pdf")
+    end
+
     Images.jpeg64 = jpeg64;
     Images.jpeg65 = jpeg65;
     Images.jpeg68 = jpeg68;
+    Images.rgb = rgb;
 end

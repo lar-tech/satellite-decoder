@@ -129,4 +129,7 @@ function softBitsAll = constellation(recursive, symbols, Params)
             drawnow;
         end
     end
+    if Params.plotting && Params.export && ~recursive
+        exportgraphics(gcf, "data/plots/corr_encoded.pdf")
+    end
 end

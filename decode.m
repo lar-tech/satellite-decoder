@@ -71,5 +71,8 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
         ylabel('Cross-correlation');
         title('Cross-correlation of 1ACFFC1D and decoded Softbits');
         grid on;
+        if Params.export
+            exportgraphics(gcf, "data/plots/corr_decoded.pdf")
+        end
     end
 end

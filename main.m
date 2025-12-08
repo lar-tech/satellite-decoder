@@ -5,7 +5,7 @@ tic
 [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig();
 
 % pre-evaluation
-preeval(Data, Params);
+qualitycheck(Data, Params);
 
 % demodulation
 symbols = demod(Data, Params, Rcc);
@@ -20,6 +20,6 @@ cvcdus = decode(softBits, Viterbi, Descrambler, Params);
 [mcus, qualityFactors, apids] = extraction(cvcdus, Params);
 
 % % jpeg decoding
-Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT);
+Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params);
 
 toc
