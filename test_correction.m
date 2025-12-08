@@ -3,6 +3,13 @@ close all; clear; clc;
 % load cvcdus
 load("data/cvcdus.mat")
 
+% reed-solomon decoder
+ReedSolomon.interleavingDepth = 4;
+ReedSolomon.codeWordLength = 255;                       
+ReedSolomon.messageLength = 223;                        
+ReedSolomon.primitivePolynomial = [1 1 0 0 0 0 1 1 1];  % x^8+x^7+x^2+x+1
+ReedSolomon.E = 16;
+
 % de-interleaving
 deinterleavedBlocks = zeros(size(cvcdus, 1), ReedSolomon.interleavingDepth, ReedSolomon.codeWordLength, 'uint8');
 for i = 1:size(cvcdus, 1)
@@ -11,13 +18,6 @@ for i = 1:size(cvcdus, 1)
         deinterleavedBlocks(i, j, :) = cvcdu(j:ReedSolomon.interleavingDepth:end);
     end
 end
-
-% reed-solomon decoder
-ReedSolomon.interleavingDepth = 4;
-ReedSolomon.codeWordLength = 255;                       
-ReedSolomon.messageLength = 223;                        
-ReedSolomon.primitivePolynomial = [1 1 0 0 0 0 1 1 1];  % x^8+x^7+x^2+x+1
-ReedSolomon.E = 16;
 
 N = ReedSolomon.codeWordLength;
 K = ReedSolomon.messageLength;
