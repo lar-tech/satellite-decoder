@@ -63,7 +63,7 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
     
     % plotting
     if Params.plotting
-        figure(3);
+        figure;
         plot(lags, abs(corr)); hold on;
         plot(lags(locs), pks, 'rx'); hold off;
         xlim([0 length(corr)/2]);

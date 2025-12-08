@@ -36,7 +36,7 @@ function symbols = demod(Data, Params, Rcc)
 
     hPlot = [];
     if Params.plotting
-        figure(1); clf;
+        figure; clf;
         hPlot = plot(nan, nan, '.', 'MarkerSize', 8);
         axis equal;
         axis([-2.5 2.5 -2.5 2.5]);

@@ -2,7 +2,10 @@ close all; clear; clc;
 tic 
 
 % get configurations
-[Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig(); 
+[Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = getconfig();
+
+% pre-evaluation
+preeval(Data, Params);
 
 % demodulation
 symbols = demod(Data, Params, Rcc);
