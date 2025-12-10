@@ -16,18 +16,21 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
     [DCMap, ACMap] = huffman(Huffman);
     
     % quality factor
-    F = cell(1, numel(qualityFactors));
-    for i = 1:numel(qualityFactors)
-        if ~isempty(qualityFactors)
-            if 20 < qualityFactors(i) && qualityFactors(i) < 50
-                F{i} = 5000 / qualityFactors(i);
-            elseif 50 <= qualityFactors(i) && qualityFactors(i) <= 100
-                F{i} = 200 - 2 * qualityFactors(i);
-            else
-                F{i} = 100;
-            end
-        end
+    Q = double(qualityFactors(:).');  
+    F = 100 * ones(size(Q));  
+    mask1 = Q > 20 & Q < 50;
+    F(mask1) = 5000 ./ Q(mask1);    
+    mask2 = Q >= 50 & Q <= 100;
+    F(mask2) = 200 - 2 * Q(mask2);
+
+    zigzagRow = zeros(1, 64);
+    zigzagCol = zeros(1, 64);
+    for k = 0:63
+        [r, c] = find(DCT.zigzagTable == k);
+        zigzagRow(k+1) = r;
+        zigzagCol(k+1) = c;
     end
+    zigzagIdx = sub2ind([8 8], zigzagRow, zigzagCol);
     
     figure;
     sub64 = subplot(3,1,1);
@@ -143,15 +146,15 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
             % zig-zag order and 2d inverse-discrete-cosine-transform
             if ~isempty(magnitude)
                 zigzag = zeros(8,8);
-                for k = 0:63
-                    [r, c] = find(DCT.zigzagTable == k);
-                    zigzag(r,c) = magnitude(k+1); 
-                end
-                zigzagQuant = zigzag .* DCT.quantizationTable * double(F{i})/100;
+                zigzag(zigzagIdx) = magnitude(1:64);
+                fq = F(min(i, numel(F)));
+                zigzagQuant = zigzag .* DCT.quantizationTable * (fq / 100);
                 spatial = idct2(zigzagQuant) + 128;
             else
                 spatial = zeros(8,8);
             end
+
+            spatial = uint8(spatial);
             
             % match spatial with respective apid
             if apid == 64
