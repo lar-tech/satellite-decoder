@@ -14,7 +14,7 @@ symbols = demod(Data, Params, Rcc);
 softBits = constellation(0, symbols, Params);
 
 % decoding and descrambling
-cvcdus = decode(softBits, Viterbi, Descrambler, Params);
+cvcdus = decode(softBits, Viterbi, Descrambler, Params); 
 
 % mcu extraction
 [mcus, qualityFactors, apids] = extraction(cvcdus, Params);

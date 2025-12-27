@@ -18,48 +18,50 @@ function qualitycheck(Data, Params)
         if Params.export
             exportgraphics(gcf, "data/plots/qc_baseband.pdf")
         end
-        
+
         x = x(1:100000);
         % scatterplot: baseband signal 
         figure;
         plot(real(x), imag(x), '.', LineStyle='none');
         ylim([-0.02, 0.02]);
-        xlabel("Q-Part")
-        ylabel("I-Part")
+        xlabel("I-Part")
+        ylabel("Q-Part")
         axis equal;
         axis([-0.015 0.015 -0.015 0.015]);
         grid();
         if Params.export
             exportgraphics(gcf, "data/plots/qc_scatter.pdf")
         end
-        
+
         % power spectral density
-        nFFT = length(x);
-        psd = abs(fftshift(fft(x, nFFT)));
-        psdDb = 10 .* log10(psd);
-        f = linspace(-fs/2, fs/2, nFFT);
+        [pxx,f] = pwelch(x,[],[],[],fs,'centered');
+        psdDb = 10 .* log10(pxx);
         figure;
-        plot(f, psdDb);
+        plot(f/1000, psdDb);
         xlabel("Frequency [kHz]");
         ylabel("Magnitude [dB]");
         grid();
         if Params.export
             exportgraphics(gcf, "data/plots/qc_psd.pdf")
         end
-        
+
         % waterfall
-        nFFT = 1024;
-        overlap = nFFT / 2;
-        window = hanning(nFFT);
+        nFFT    = 1024;
+        overlap = nFFT/2;
+        window  = hanning(nFFT);
+        [S, f, t] = spectrogram(x, window, overlap, nFFT, Data.fs, "centered", "psd");
+        U   = sum(window.^2);                    
+        Pxx = (abs(S).^2) / (Data.fs * U);       
+        sdB = 10*log10(Pxx + eps); 
         figure;
-        [s, f, t] = spectrogram(x, window, overlap, nFFT, Data.fs, 'centered');
-        sdB = 10 * log10(abs(s).^2 + eps);
-        imagesc(f/1000, t, sdB.');
-        colorbar;
-        xlabel('Frequency [kHz]');
-        ylabel('Time [s]');
+        imagesc(f/1e3, t, sdB.');
+        axis xy;
+        cb = colorbar;
+        cb.Label.String = 'Power [dB]';
+        xlabel("Frequency [kHz]");
+        ylabel("Time [s]");
         if Params.export
             exportgraphics(gcf, "data/plots/qc_waterfall.pdf")
         end
-    end
+   end
 end
