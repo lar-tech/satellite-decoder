@@ -202,7 +202,6 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
     end
     
     ppClean = pp(keepPP);
-    
     nPP = numel(ppClean);
     mcus = cell(1, nPP);
     qualityFactors = zeros(1, nPP);
@@ -219,6 +218,6 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
     end
     
     if Params.plotting
-        fprintf("Extracted %d MCUs. %d MCUs are missing.\n", nPP, numel(pp)-numel(ppClean));
+        fprintf("Extracted %d MCUs.\n", nPP);
     end
 end
