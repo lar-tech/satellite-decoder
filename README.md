@@ -59,7 +59,8 @@ All relevant standards and theoretical background are discussed in detail in the
 │   ├── getconfig.m
 │   ├── huffman.m
 │   ├── jpegdecoding.m
-│   └── qualitycheck.m
+│   ├── qualitycheck.m
+│   └── reedsolomon.m
 │
 ├── data/
 │   ├── meteor_m2_72k.wav # example recording
@@ -91,4 +92,4 @@ Anton Valentin Dilg, Ramin Leon Neymeyer, Ramon Rennert, Steffen August Sigwart
 Technische Universität Berlin, Faculty of Electrical Engineering and Computer Science
 
 ## License
-This project is licensed under the MIT License
+This project is licensed under the MIT License.
