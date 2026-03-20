@@ -7,7 +7,7 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
 
     % general
     Params.blockSize = 98304;
-    Params.plotting = false;
+    Params.plotting = true;
     Params.export = false;
     if ~exist("data/plots", "dir")
         mkdir("data/plots")
@@ -77,7 +77,11 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
     ReedSolomon.interleavingDepth = 4;
     ReedSolomon.codeWordLength = 255;                       
     ReedSolomon.messageLength = 223;                        
-    ReedSolomon.primitivePolynomial = [1 1 0 0 0 0 1 1 1];  
+    ReedSolomon.primitivePolynomial = '187';
+    ReedSolomon.E = 16;
+    ReedSolomon.firstConsecutiveRoot = 112;
+    ReedSolomon.generatorRootGap = 11;
+    ReedSolomon.numberOfRoots = 32; 
 
     % jpeg Huffman & DCT
     Huffman.lDc.lengths = [0 1 5 1 1 1 1 1 1 0 0 0 0 0 0 0];
