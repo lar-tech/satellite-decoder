@@ -70,6 +70,7 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
         magnitudes = cell(1, 14);
         while pos < numel(mcu)
             % DC Part
+            dcFound = false;
             for k = 1:9
                 % check if we have found all 14 thumbnails
                 if mcu(pos+k-1:end) == ones(1, numel(mcu(pos+k-1:end))) | j > 14
@@ -79,17 +80,22 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
                 key = sprintf('%d', mcu(pos:pos+k-1));
                 if isKey(DCMap.symbols,key)
                     nextSymbolLength = double(DCMap.symbols(key));
-                    if nextSymbolLength ~= 0 % EOB
+                    if nextSymbolLength ~= 0
                         bitArray = mcu(pos+k:pos+k+nextSymbolLength-1);
                         dcMagnitude = decodeMagnitude(nextSymbolLength, bitArray);
-                        break
                     else
+                        nextSymbolLength = 0;
                         dcMagnitude = 0;
                     end
+                    dcFound = true;
+                    break
                 end
             end
             if goToNextMcu
                 break
+            end
+            if ~dcFound
+                break  % unknown DC code: stop decoding this MCU packet
             end
             pos = pos + k + nextSymbolLength;
     
@@ -129,7 +135,7 @@ function Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params
             end
     
             % differential decoding of DC-values
-            if j==1
+            if j==1 || isempty(magnitudes{j-1})
                 dcMagnitude = 0 + dcMagnitude;
             else
                 dcMagnitude = magnitudes{j-1}(1) + dcMagnitude;

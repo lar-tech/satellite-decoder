@@ -39,7 +39,8 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
     maxPackets = nRows * 5;
     pp = cell(1, maxPackets);
     counter = int16(zeros(1,maxPackets));
-    
+    apidCounters = containers.Map('KeyType', 'double', 'ValueType', 'double');
+
     row = 1;
     idx = double(mod(mpduPointerDec(1), 2048) + 1);
     i = 1;
@@ -54,6 +55,7 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
         % Check: header continues onto the next row
         if idx+7 > nCols
             % header spans across row and row + 1
+            if row >= nRows; break; end
             part1    = mpdusPayload(row, idx:end);
             tmpPart2 = mpdusPayload(row+1, 1:17); % worst case is 17 bytes in next row
             tmpHeader = [part1, tmpPart2];
@@ -122,27 +124,36 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
             processed = processed + totalLen;
         end
     
-        % handle missing partial packets
-        if i > 1
-            % normal case
-            if counter(j) - counter(j-1) == 1 || counter(j) == 0
-                pp{i} = tempPP; 
-                j = j + 1;
-    
-            % missing partial packets
-            elseif counter(j) - counter(j-1) > 1
-                i = i + counter(j) - counter(j-1);
+        % per-APID sequence counter gap detection
+        apidKey = double(apid);
+        currentCounter = double(counter(j));
+        if isKey(apidCounters, apidKey)
+            lastCounter = apidCounters(apidKey);
+            gap = currentCounter - lastCounter;
+            if gap == 1 || currentCounter == 0
+                % normal: sequential packet or counter rolled over to 0
                 pp{i} = tempPP;
                 j = j + 1;
+                i = i + 1;
+            elseif gap > 1
+                % skip gap-1 empty slots for missing packets
+                i = i + gap - 1;
+                pp{i} = tempPP;
+                j = j + 1;
+                i = i + 1;
             else
-                continue
+                % backward or duplicate counter: store packet without skipping
+                pp{i} = tempPP;
+                j = j + 1;
+                i = i + 1;
             end
         else
-            % normal case for first packet
+            % first packet seen for this APID
             pp{i} = tempPP;
             j = j + 1;
+            i = i + 1;
         end
-        i = i + 1;
+        apidCounters(apidKey) = currentCounter;
     end
     
     % cut to actual length

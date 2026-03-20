@@ -26,12 +26,13 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
     decodedBits = double(decodedBits+1)/2;
     
     % remove sync word for descrambling
-    payloads = repmat({zeros(8160, 1)}, 1, numel(locs)-1);
+    payloads = {};
+    isPlaceholder = logical([]);
     for i = 1:numel(locs)-1
         startIdx = lags(locs(i))+length(syncAsmBits)+1;
         expectedStopIdx = startIdx+8160-1;
 
-        % case: frames has 8192 or more Bytes 
+        % case: frames has 8192 or more Bytes
         if lags(locs(i+1)) >= expectedStopIdx
             stopIdx = expectedStopIdx;
 
@@ -43,16 +44,29 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
         elseif expectedStopIdx > numel(decodedBits)
             break
         end
-        
-        payloads{i}(1:stopIdx-startIdx+1) = decodedBits(startIdx:stopIdx);
+
+        payload = zeros(8160, 1);
+        payload(1:stopIdx-startIdx+1) = decodedBits(startIdx:stopIdx);
+        payloads{end+1} = payload;
+        isPlaceholder(end+1) = false;
+
+        % insert zero-filled placeholders for missing frames
+        nMissing = round((lags(locs(i+1)) - lags(locs(i))) / 8192) - 1;
+        for m = 1:nMissing
+            payloads{end+1} = zeros(8160, 1);
+            isPlaceholder(end+1) = true;
+        end
     end
-    
+
     % descrambler
     numFrames = numel(payloads);
     frameLenBytes = 1024;
     cvcdus = zeros(numFrames, frameLenBytes-4, 'uint8');
-    
+
     for i = 1:numFrames
+        if isPlaceholder(i)
+            continue  % leave row as zeros; do not XOR with PN sequence
+        end
         payload = payloads{i};
         payload = reshape(payload, 8, []).';
         payload = uint8(bi2de(payload, 'left-msb'));
