@@ -8,14 +8,14 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
     % general
     Params.blockSize = 98304;
     Params.plotting = true;
-    Params.export = false;
+    Params.export = true;
     if ~exist("data/plots", "dir")
         mkdir("data/plots")
     end
-    Params.minClip = -0.01;             
-    Params.maxClip = 0.01;              
-    Params.M = 4;                       
-    Params.symbolRate = 72e3;           
+    Params.minClip = -0.01;
+    Params.maxClip = 0.01;
+    Params.M = 4;
+    Params.symbolRate = 72e3;
     Params.targetSps = 4;
     Params.targetFs = Params.targetSps * Params.symbolRate; 
     [Params.p, Params.q] = rat(Params.targetFs/Data.fs); 
@@ -27,15 +27,15 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
                             };
 
     % rcc
-    Rcc.rollOff = 0.35;                 
-    Rcc.spanSym = 10;                   
+    Rcc.rollOff = 0.35;
+    Rcc.spanSym = 10;
 
     % viterbi
-    Viterbi.codeRate = 1/2;             
-    Viterbi.constLen = 7;               
-    Viterbi.codeGenPoly = [171 133];    
-    Viterbi.tblen = 30;                 
-    Viterbi.softInputWordLength = 8;    
+    Viterbi.codeRate = 1/2;
+    Viterbi.constLen = 7;
+    Viterbi.codeGenPoly = [171 133];
+    Viterbi.tblen = 30;
+    Viterbi.softInputWordLength = 8;
 
     % descrambler
     Descrambler.pn = uint8([
@@ -75,8 +75,8 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
 
     % reed-solomon
     ReedSolomon.interleavingDepth = 4;
-    ReedSolomon.codeWordLength = 255;                       
-    ReedSolomon.messageLength = 223;                        
+    ReedSolomon.codeWordLength = 255;
+    ReedSolomon.messageLength = 223;
     ReedSolomon.primitivePolynomial = '187';
     ReedSolomon.E = 16;
     ReedSolomon.firstConsecutiveRoot = 112;
