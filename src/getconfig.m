@@ -8,7 +8,7 @@ function [Data, Params, Rcc, Viterbi, Descrambler, ReedSolomon, Huffman, DCT] = 
     % general
     Params.blockSize = 98304;
     Params.plotting = true;
-    Params.export = true;
+    Params.export = false;
     if ~exist("data/plots", "dir")
         mkdir("data/plots")
     end
