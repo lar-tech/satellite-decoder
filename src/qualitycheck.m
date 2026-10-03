@@ -5,6 +5,9 @@ function qualitycheck(Data, Params)
         Q = single(Data.raw(:,2));
         x = (I + 1j*Q);
         fs = Data.fs;
+        if numel(x) < 4
+            return
+        end
         
         % baseband signal
         figure;
@@ -19,7 +22,7 @@ function qualitycheck(Data, Params)
             exportgraphics(gcf, "data/plots/qc_baseband.pdf")
         end
 
-        x = x(1:100000);
+        x = x(1:min(100000,numel(x)));
         % scatterplot: baseband signal 
         figure;
         plot(real(x), imag(x), '.', LineStyle='none');
@@ -46,8 +49,8 @@ function qualitycheck(Data, Params)
         end
 
         % waterfall
-        nFFT    = 1024;
-        overlap = nFFT/2;
+        nFFT    = min(1024,numel(x));
+        overlap = floor(nFFT/2);
         window  = hanning(nFFT);
         [S, f, t] = spectrogram(x, window, overlap, nFFT, Data.fs, "centered", "psd");
         U   = sum(window.^2);                    

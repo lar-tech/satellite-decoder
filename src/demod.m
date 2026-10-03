@@ -21,8 +21,8 @@ function symbols = demod(Data, Params, Rcc)
     Q = single(Data.raw(:,2));
     I = clip(I, Params.minClip, Params.maxClip);
     Q = clip(Q, Params.minClip, Params.maxClip);
-    I = I / max(abs(I));
-    Q = Q / max(abs(Q));
+    I = I / max(max(abs(I)), eps('single'));
+    Q = Q / max(max(abs(Q)), eps('single'));
     x = (I + 1j*Q);
     
     % fir-resampling     
@@ -47,14 +47,23 @@ function symbols = demod(Data, Params, Rcc)
     end
     
 
-    while i+Params.blockSize <= numel(yFilteredAll)
-        if i+Params.blockSize <= numel(yFilteredAll)
+    while i <= numel(yFilteredAll)
+        if i+Params.blockSize-1 <= numel(yFilteredAll)
             yFiltered = yFilteredAll(i:i+Params.blockSize-1);
         else
             % if last block exceeds filesize 
             yFiltered = yFilteredAll(i:end);
         end
     
+        % reinitialize fixed-size objects for the last partial block
+        if numel(yFiltered) < Params.blockSize
+            if numel(yFiltered) < Params.targetSps
+                break
+            end
+            release(cfo);
+            release(symSync);
+        end
+
         % cfo-compensation
         yCfo = cfo(yFiltered);
     

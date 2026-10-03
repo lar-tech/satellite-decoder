@@ -1,17 +1,19 @@
 function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
+    if isempty(softBits)
+        cvcdus = zeros(0,1020,'uint8');
+        return
+    end
+
     % viterbi-decoder
     trellis = poly2trellis(Viterbi.constLen, Viterbi.codeGenPoly);
     vDec = comm.ViterbiDecoder( ...
             'TrellisStructure', trellis, ...
-            'InputFormat', 'Soft',...
+            'InputFormat', 'Unquantized',...
             'TracebackDepth', Viterbi.tblen...
             );
-    softBitsScaled = softBits * 10;
-    decodedBits = vDec(softBitsScaled);
+    % unquantized input uses positive LLRs for bit zero
+    decodedBits = vDec(softBits);
     decodedBits = 2*double(decodedBits)-1;
-    
-    % invert Bits don't know why
-    decodedBits = -decodedBits;
     
     % sync word
     syncAsm = '1ACFFC1D';
@@ -28,21 +30,26 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
     % remove sync word for descrambling
     payloads = {};
     isPlaceholder = logical([]);
-    for i = 1:numel(locs)-1
+    for i = 1:numel(locs)
         startIdx = lags(locs(i))+length(syncAsmBits)+1;
         expectedStopIdx = startIdx+8160-1;
 
-        % case: frames has 8192 or more Bytes
-        if lags(locs(i+1)) >= expectedStopIdx
+        if expectedStopIdx > numel(decodedBits)
+            break
+        end
+        if i == numel(locs)
+            nextLag = Inf;
+        else
+            nextLag = lags(locs(i+1));
+        end
+
+        % complete frame
+        if nextLag >= expectedStopIdx
             stopIdx = expectedStopIdx;
 
-        % case: frames has less than 8192 Byte (bitstuffing with zeros)
-        elseif lags(locs(i+1)) < expectedStopIdx
-            stopIdx = lags(locs(i+1))-1;
-
-        % last frame
-        elseif expectedStopIdx > numel(decodedBits)
-            break
+        % short frame: pad the missing bits
+        elseif nextLag < expectedStopIdx
+            stopIdx = nextLag;
         end
 
         payload = zeros(8160, 1);
@@ -51,7 +58,10 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
         isPlaceholder(end+1) = false;
 
         % insert zero-filled placeholders for missing frames
-        nMissing = round((lags(locs(i+1)) - lags(locs(i))) / 8192) - 1;
+        nMissing = 0;
+        if isfinite(nextLag)
+            nMissing = round((nextLag - lags(locs(i))) / 8192) - 1;
+        end
         for m = 1:nMissing
             payloads{end+1} = zeros(8160, 1);
             isPlaceholder(end+1) = true;
@@ -71,7 +81,7 @@ function cvcdus = decode(softBits, Viterbi, Descrambler, Params)
         payload = reshape(payload, 8, []).';
         payload = uint8(bi2de(payload, 'left-msb'));
         idx = mod(0:numel(payload)-1, 255) + 1;
-        payloadDescrambled = diag(bitxor(payload, Descrambler.pn(idx)));
+        payloadDescrambled = bitxor(payload, reshape(Descrambler.pn(idx),[],1));
         cvcdus(i,:) = payloadDescrambled;
     end
     

@@ -1,19 +1,38 @@
-function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
-    function [row, idx, validHeader] = checkHeader(Header, apid, row, idx, nCols)
-        if ~(Header(1) == 8 && ismember(apid, [64 65 68 70]) && Header(7) == 0)
-            % go to next idx
-            if idx < nCols
-                idx = idx + 1;
-            else
-                row = row + 1;
-                idx = 1;
+function [mcus, qualityFactors, apids, Meta] = extraction(cvcdus, Params)
+    function remaining = readPackets(bytes, multiplePackets)
+        remaining = uint8([]);
+        pos = 1;
+        while pos <= numel(bytes)
+            % keep an incomplete header for the next frame
+            if numel(bytes)-pos+1 < 6
+                remaining = bytes(pos:end);
+                return
             end
-            validHeader = 0;
-        else
-            validHeader = 1;
+            lenBytes = bytes(pos+4:pos+5);
+            lenDec = double(lenBytes(1))*256 + double(lenBytes(2));
+            totalLen = 6 + lenDec + 1;
+            if bitshift(bytes(pos),-5) ~= 0
+                return  % resume at the next first header pointer
+            end
+            if pos+totalLen-1 > numel(bytes)
+                remaining = bytes(pos:end);
+                return
+            end
+
+            tempPP = bytes(pos:pos+totalLen-1);
+            if totalLen >= 21 && tempPP(1) == 8 && ismember(tempPP(2), [64 65 68]) && ...
+                    tempPP(18) == 255 && tempPP(19) == 240 && ...
+                    tempPP(15) <= 182 && mod(double(tempPP(15)),14) == 0 && ...
+                    tempPP(20) >= 1 && tempPP(20) <= 100
+                pp{end+1} = tempPP;
+            end
+            pos = pos + totalLen;
+            if ~multiplePackets
+                return
+            end
         end
     end
-        
+
     function counter = calcCounter(Header)
         counterPP1 = Header(3).';
         counterPP1 = int2bit(counterPP1.', 8).';
@@ -29,136 +48,49 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
     mpdus = vcdus(:,9:end);
     mpdusPayload = mpdus(:,3:end);
     mpdusHeader = mpdus(:,1:2);
-    mpdusHeaderBits = int2bit(mpdusHeader.', 8).';
-    mpduPointer = mpdusHeaderBits(:,6:end);
-    mpduPointerDec = bi2de(mpduPointer, 'left-msb');
-    
+    mpduPointerDec = double(bitand(uint16(mpdusHeader(:,1))*256 + ...
+                                 uint16(mpdusHeader(:,2)), uint16(2047)));
     [nRows, nCols] = size(mpdusPayload);
-    totalBytes = numel(mpdusPayload);
-    
-    maxPackets = nRows * 5;
-    pp = cell(1, maxPackets);
-    counter = int16(zeros(1,maxPackets));
-    apidCounters = containers.Map('KeyType', 'double', 'ValueType', 'double');
 
-    row = 1;
-    idx = double(mod(mpduPointerDec(1), 2048) + 1);
-    i = 1;
-    j = 1;
-    processed = 0;
-    validHeader = 0;
-    
-    while processed < totalBytes && row <= nRows
-    
-        tempPP = [];
-    
-        % Check: header continues onto the next row
-        if idx+7 > nCols
-            % header spans across row and row + 1
-            if row >= nRows; break; end
-            part1    = mpdusPayload(row, idx:end);
-            tmpPart2 = mpdusPayload(row+1, 1:17); % worst case is 17 bytes in next row
-            tmpHeader = [part1, tmpPart2];
-    
-            apid = tmpHeader(2);
-            
-            [row, idx, validHeader] = checkHeader(tmpHeader, apid, row, idx, nCols);
-            if ~validHeader
-                continue
-            end
-            counter(j) = calcCounter(tmpHeader);
-    
-            lenBytes = tmpHeader(5:6);
-            lenDec = double(uint16(lenBytes(1)) * 256 + uint16(lenBytes(2))); % eleganteres int2bit
-            totalLen = 6 + lenDec + 1;
-            idx = totalLen - numel(part1) + 1;
-            part2  = mpdusPayload(row+1, 1:idx);
-            tempPP = [part1, part2];
-            row = row + 1;
-            processed = processed + totalLen;
-    
-        else
-            % header fully contained in current row
-            apid = mpdusPayload(row, idx+1);
-            [row, idx, validHeader] = checkHeader(mpdusPayload(row, idx:idx+7), apid, row, idx, nCols);
-            if ~validHeader
-                continue
-            end
-    
-            counter(j) = calcCounter(mpdusPayload(row, idx:idx+4));
-    
-            lenBytes = mpdusPayload(row, idx+4:idx+5);
-            lenDec = double(uint16(lenBytes(1)) * 256 + uint16(lenBytes(2)));
-            totalLen = 6 + lenDec + 1;
-    
-            remaining = nCols - idx + 1;
-    
-            if remaining > totalLen
-                % standard case
-                tempPP = mpdusPayload(row, idx:idx+totalLen-1);
-                idx = idx + totalLen;
-    
-            elseif remaining == totalLen
-                % no follow-up packet -> packet ends perfectly
-                tempPP = mpdusPayload(row, idx:end);
-                if row < nRows
-                    idx = double(mod(mpduPointerDec(row+1), 2048) + 1);
-                end
-                row = row + 1;
-    
-            elseif row < nRows
-                % overflow into next row
-                part1 = mpdusPayload(row, idx:end);
-                part2 = mpdusPayload(row+1, 1:totalLen-numel(part1));
-                tempPP = [part1, part2];
-                P = mod(mpduPointerDec(row+1), 2048);
-                idx = double(P + 1);
-                row = row + 1;
-    
-            else
-                % last incomplete mcu
-                tempPP = mpdusPayload(row, idx:end);
-                row = nRows + 1;
-            end
-    
-            processed = processed + totalLen;
+    pp = {};
+    partialPP = uint8([]);
+    lastCounter = [];
+    lastId = [];
+
+    for row = 1:nRows
+        frame = cvcdus(row,:);
+        if ~any(frame) || bitshift(frame(1),-6) ~= 1
+            partialPP = uint8([]);
+            lastCounter = [];
+            continue
         end
-    
-        % per-APID sequence counter gap detection
-        apidKey = double(apid);
-        currentCounter = double(counter(j));
-        if isKey(apidCounters, apidKey)
-            lastCounter = apidCounters(apidKey);
-            gap = currentCounter - lastCounter;
-            if gap == 1 || currentCounter == 0
-                % normal: sequential packet or counter rolled over to 0
-                pp{i} = tempPP;
-                j = j + 1;
-                i = i + 1;
-            elseif gap > 1
-                % skip gap-1 empty slots for missing packets
-                i = i + gap - 1;
-                pp{i} = tempPP;
-                j = j + 1;
-                i = i + 1;
-            else
-                % backward or duplicate counter: store packet without skipping
-                pp{i} = tempPP;
-                j = j + 1;
-                i = i + 1;
-            end
-        else
-            % first packet seen for this APID
-            pp{i} = tempPP;
-            j = j + 1;
-            i = i + 1;
+
+        % do not join packet fragments across missing frames or different channels
+        counter = double(frame(3))*65536 + double(frame(4))*256 + double(frame(5));
+        vcduId = double(frame(1))*256 + double(frame(2));
+        if ~isempty(lastCounter) && (mod(counter-lastCounter,2^24) ~= 1 || vcduId ~= lastId)
+            partialPP = uint8([]);
         end
-        apidCounters(apidKey) = currentCounter;
+        lastCounter = counter;
+        lastId = vcduId;
+
+        idx = mpduPointerDec(row) + 1;
+        if idx == 2048
+            % no new packet header in this frame
+            if ~isempty(partialPP)
+                partialPP = readPackets([partialPP, mpdusPayload(row,:)], false);
+            end
+        elseif idx <= nCols
+            if ~isempty(partialPP)
+                readPackets([partialPP, mpdusPayload(row,1:idx-1)], false);
+            end
+            % the pointer starts a new packet, even if the old packet was incomplete
+            partialPP = readPackets(mpdusPayload(row,idx:end), true);
+        else
+            partialPP = uint8([]);
+        end
     end
-    
-    % cut to actual length
-    pp = pp(1:i-1);
-    
+
     % clean up the partial packets
     nPP = numel(pp);
     validApid = [64 65 68 70];
@@ -195,18 +127,27 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
             thumbnailCounters = mcuCounters(startIdx:endIdx);
         
             % keep the segment only if length and counter pattern match exactly
-            if numel(thumbnailCounters) == nPerThumb && isequal(thumbnailCounters(:).', expectedCounter)
+            packetCounters = cellfun(@calcCounter, pp(idxApid(startIdx:endIdx)));
+            if numel(thumbnailCounters) == nPerThumb && isequal(thumbnailCounters(:).', expectedCounter) && ...
+                    all(mod(diff(double(packetCounters)),16384) == 1)
                 keepPP(idxApid(startIdx:endIdx)) = true;
             end
         end
     end
     
+    % keep partial scan lines when packets are placed by timestamp and MCU number
+    if isfield(Params, 'keepPartialScans') && Params.keepPartialScans
+        keepPP(:) = true;
+    end
+
     ppClean = pp(keepPP);
     nPP = numel(ppClean);
     mcus = cell(1, nPP);
     qualityFactors = zeros(1, nPP);
     apids = zeros(1, nPP);
-    mcuCounter = zeros(1, nPP);
+    Meta.mcu = zeros(1, nPP);
+    Meta.time = zeros(1, nPP);
+    Meta.sequence = zeros(1, nPP);
     
     for i = 1:nPP
         p = ppClean{i};
@@ -214,9 +155,14 @@ function [mcus, qualityFactors, apids] = extraction(cvcdus, Params)
         qualityFactors(i) = p(20);
         mcusDec = p(21:end);
         mcus{i} = int2bit(mcusDec.', 8).';
-        mcuCounter(i) = p(15);
+        Meta.mcu(i) = p(15);
+        Meta.sequence(i) = double(calcCounter(p));
+        Meta.time(i) = (double(p(7))*256+double(p(8)))*86400000 + ...
+                      double(p(9))*2^24+double(p(10))*65536+double(p(11))*256+double(p(12));
     end
     
+    Meta.apid = apids;
+
     if Params.plotting
         fprintf("Extracted %d MCUs.\n", nPP);
     end

@@ -1,4 +1,4 @@
-function corrected = reedsolomon(cvcdus, ReedSolomon, Params)
+function [corrected, errors] = reedsolomon(cvcdus, ReedSolomon, Params)
     primPoly = hex2dec(ReedSolomon.primitivePolynomial);
     fcr = ReedSolomon.firstConsecutiveRoot;
     prim = ReedSolomon.generatorRootGap;
@@ -72,7 +72,7 @@ function [gfExp, gfLog] = gfBuildTables(primPoly)
             element = bitxor(element, primPoly);
         end
         gfExp(i+1) = element;
-        if i < 256
+        if i < 255
             gfLog(element+1) = i;
         end
     end
@@ -87,7 +87,7 @@ function r = gfMul(gfExp, gfLog, a, b)
         r = 0;
         return;
     end
-    res = uint16(gfLog(a+1)) + uint16(gfLog(b+1));
+    res = uint16(gfLog(double(a)+1)) + uint16(gfLog(double(b)+1));
     r = gfExp(res+1);
 end
 
@@ -100,7 +100,7 @@ function r = gfDiv(gfExp, gfLog, a, b)
         r = 0;  % shouldn't happen
         return;
     end
-    res = 255 + uint16(gfLog(a+1)) - uint16(gfLog(b+1));
+    res = 255 + uint16(gfLog(double(a)+1)) - uint16(gfLog(double(b)+1));
     r = gfExp(res+1);
 end
 
@@ -109,7 +109,7 @@ function r = gfPow(gfExp, gfLog, elem, p)
         r = 0;
         return;
     end
-    log_val = double(gfLog(elem+1));
+    log_val = double(gfLog(double(elem)+1));
     res_log = log_val * p;
     m = mod(res_log, 255);
     if m < 0
@@ -127,7 +127,7 @@ function lut = buildExpLut(gfExp, gfLog, val, order)
     valExp = gfLog(2);
 
     valExponentiated = gfLog(1+1);
-    valLog = gfLog(val+1);
+    valLog = gfLog(double(val)+1);
 
     for i = 1:order+1
         if val == 0
@@ -206,7 +206,7 @@ function [decoded, nerrors] = rsDecodeBlock(codeword, N, K, nRoots, fcr, prim, g
     errorLocatorActual = double(errorLocator(1:order+1));
     errorRoots = zeros(1, order);
     rootCount = 0;
-    for i = 0:255
+    for i = 1:255
         val = polyEvalLut(gfExp, gfLog, errorLocatorActual, elementExp(i+1, 1:order+1));
         if val == 0
             rootCount = rootCount + 1;
@@ -275,6 +275,15 @@ function [decoded, nerrors] = rsDecodeBlock(codeword, N, K, nRoots, fcr, prim, g
 
     % convert back to original byte order
     decoded = uint8(fliplr(recvPoly));
+
+    % verify the correction using all syndromes
+    for k = 1:nRoots
+        if polyEvalLut(gfExp, gfLog, recvPoly, genRootsExp(k,:)) ~= 0
+            decoded = codeword;
+            nerrors = -1;
+            return;
+        end
+    end
     nerrors = int16(order);
 end
 

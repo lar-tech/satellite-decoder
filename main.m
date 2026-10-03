@@ -16,10 +16,13 @@ softBits = constellation(0, symbols, Params);
 % decoding and descrambling
 cvcdus = decode(softBits, Viterbi, Descrambler, Params); 
 
+% reed-solomon correction
+[cvcdus, rsErrors] = reedsolomon(cvcdus, ReedSolomon, Params);
+
 % mcu extraction
-[mcus, qualityFactors, apids] = extraction(cvcdus, Params);
+[mcus, qualityFactors, apids, Meta] = extraction(cvcdus, Params);
 
 % jpeg decoding
-Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params);
+Images = jpegdecoding(mcus, qualityFactors, apids, Huffman, DCT, Params, Meta);
 
 toc

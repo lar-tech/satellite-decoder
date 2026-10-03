@@ -4,7 +4,11 @@ function softBitsAll = constellation(recursive, symbols, Params)
         corrNormalized = abs(corrError)./max(abs(corrError));
         signalLevelError = quantile(abs(corrNormalized), 0.999);
         [pks, locs] = findpeaks(corrNormalized, 'MinPeakDistance',16384-1, 'Threshold', 0.1, 'MinPeakHeight', signalLevelError+0.2); % , 'MinPeakHeight', 40+signalLevel
-        softBitsConfirmed = softBitsCombined(1:lags(locs(end)));
+        if isempty(locs)
+            softBitsConfirmed = softBitsCombined;
+        else
+            softBitsConfirmed = softBitsCombined(1:max(0,lags(locs(end))));
+        end
     end
 
     % sync word
@@ -31,7 +35,8 @@ function softBitsAll = constellation(recursive, symbols, Params)
     constellationErrorFirst = 0;
     lastFrame = 0;
     softBitsAll = [];
-    while i < numel(symbols)
+    while i <= numel(symbols)
+        softBitsConfirmed = [];
         if i+Params.blockSize-1 < numel(symbols)
             symbolsBlock = symbols(i:i+Params.blockSize-1);
         else
@@ -49,6 +54,10 @@ function softBitsAll = constellation(recursive, symbols, Params)
                         OutputType="llr" ...
                         );
     
+            % skip invalid or silent blocks
+            if any(~isfinite(softBits)) || ~any(softBits)
+                continue
+            end
             % cross-correlation
             [corr, lags] = xcorr(softBits, syncAsmBits);
             corrNormalized = abs(corr)./max(abs(corr));
@@ -61,6 +70,10 @@ function softBitsAll = constellation(recursive, symbols, Params)
     
             % find peaks and calculate widths
             [pks, locs] = findpeaks(corrNormalized, 'MinPeakDistance',16384-1, 'Threshold', 0.1, 'MinPeakHeight', signalLevel+0.2); % , 'MinPeakHeight', 40+signalLevel
+            locs = locs(lags(locs)>=0);
+            if isempty(locs)
+                continue
+            end
             widths = diff(locs)/16;
     
             % check if we are in the negative case
@@ -74,7 +87,7 @@ function softBitsAll = constellation(recursive, symbols, Params)
     
                 % last few frames have different constellation
                 if expectedNumPeaks ~= numel(locs)
-                    part1 = softBits(1:lags(locs(end))+16384);
+                    part1 = softBits(1:min(numel(softBits),lags(locs(end))+16384));
                     part2 = symbolsBlock(lags(locs(end))/2+1+8192+1:end);
                     softBits = constellation(1, part2, Params);
                     constellationErrorLast = 1; 
@@ -110,6 +123,7 @@ function softBitsAll = constellation(recursive, symbols, Params)
             % last frame should contain alls softBits
             elseif all(~mod(widths, 1024)) && lastFrame
                 softBitsConfirmed = softBits;
+                break
                 
             % normal case
             elseif all(~mod(widths, 1024)) && ~lastFrame && ~recursive
@@ -117,13 +131,17 @@ function softBitsAll = constellation(recursive, symbols, Params)
                 break
             end
         end
+        if isempty(softBitsConfirmed)
+            % preserve the time axis when no constellation is confirmed
+            softBitsConfirmed = zeros(2*numel(symbolsBlock),1,'like',real(symbolsBlock));
+        end
         softBitsAll = [softBitsAll; softBitsConfirmed];
         i = i + numel(softBitsConfirmed)/2;
 
         % plotting
-        if Params.plotting && i <= 7401293
+        if Params.plotting && ~recursive && ~isempty(hPlot) && exist('corrNormalized','var')
             set(hPlot, 'XData', lags, 'YData', corrNormalized);
-            set(hPeaks, 'XData', lags(locs), 'YData', pks);
+            set(hPeaks, 'XData', lags(locs), 'YData', corrNormalized(locs));
             xlim([0 max(lags)]);
             title(sprintf('Cross-correlation of FCA2B63DB00D9794 and encoded Softbits using %s', mat2str(Params.constellations{j})));
             drawnow;
